@@ -1,4 +1,5 @@
 
+
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -12,7 +13,7 @@ participaciones = pd.read_csv("participaciones.csv")
 parejas = pd.read_csv("estadisticas_parejas.csv")
 
 # ==================================================
-# TITULO
+# TÍTULO
 # ==================================================
 
 st.title("👤 Jugadores")
@@ -43,13 +44,61 @@ info = jugadores[
 ].iloc[0]
 
 # ==================================================
+# DATOS DE COMPAÑEROS
+# ==================================================
+
+companeros_jugador = parejas[
+    (parejas["jugador_1"] == jugador)
+    |
+    (parejas["jugador_2"] == jugador)
+].copy()
+
+companeros_jugador["companero"] = companeros_jugador.apply(
+    lambda fila:
+    fila["jugador_2"]
+    if fila["jugador_1"] == jugador
+    else fila["jugador_1"],
+    axis=1
+)
+
+companero_frecuente = (
+    companeros_jugador
+    .sort_values("PJ", ascending=False)
+    .iloc[0]
+)
+
+companeros_relevantes = (
+    companeros_jugador[
+        companeros_jugador["PJ"] >= 30
+    ]
+)
+
+mejor_companero = (
+    companeros_relevantes
+    .sort_values(
+        "WinRate",
+        ascending=False
+    )
+    .iloc[0]
+)
+
+peor_companero = (
+    companeros_relevantes
+    .sort_values(
+        "WinRate",
+        ascending=True
+    )
+    .iloc[0]
+)
+
+# ==================================================
 # HEADER
 # ==================================================
 
 st.header(f"🏅 {jugador}")
 
 # ==================================================
-# KPIS PRINCIPALES
+# KPIs PRINCIPALES
 # ==================================================
 
 c1, c2, c3, c4 = st.columns(4)
@@ -77,7 +126,7 @@ c4.metric(
 st.divider()
 
 # ==================================================
-# KPIS SECUNDARIOS
+# KPIs SECUNDARIOS
 # ==================================================
 
 c1, c2, c3 = st.columns(3)
@@ -112,7 +161,11 @@ with c1:
     )
 
     st.info(
-        f"🤝 Mejor compañero: {info['mejor_companero']}"
+        f"🤝 Compañero más frecuente: {companero_frecuente['companero']} ({int(companero_frecuente['PJ'])} PJ)"
+    )
+
+    st.info(
+        f"🏆 Mejor compañero: {mejor_companero['companero']} ({mejor_companero['WinRate']:.1f}% WR)"
     )
 
 with c2:
@@ -122,7 +175,11 @@ with c2:
     )
 
     st.info(
-        f"🔥 Mejor racha histórica: {info['mejor_racha_ganadora']} victorias"
+        f"📉 Peor compañero: {peor_companero['companero']} ({peor_companero['WinRate']:.1f}% WR)"
+    )
+
+    st.info(
+        f"🔥 Mejor racha histórica: {int(info['mejor_racha_ganadora'])} victorias"
     )
 
 # ==================================================
@@ -169,15 +226,11 @@ st.subheader(
 
 fig = go.Figure()
 
-# Barras de PJ
-
 fig.add_bar(
     x=evolucion["Año"],
     y=evolucion["PJ"],
     name="Partidos Jugados"
 )
-
-# Línea de victorias
 
 fig.add_trace(
     go.Scatter(
@@ -187,8 +240,6 @@ fig.add_trace(
         name="Victorias"
     )
 )
-
-# Línea de Win Rate
 
 fig.add_trace(
     go.Scatter(
@@ -227,7 +278,7 @@ st.plotly_chart(
 )
 
 # ==================================================
-# ANALISIS DE DUPLA
+# ANÁLISIS DE DUPLA
 # ==================================================
 
 st.divider()
@@ -245,23 +296,15 @@ companero = st.selectbox(
 
 dupla = parejas[
     (
-        (
-            parejas["jugador_1"] == jugador
-        )
+        (parejas["jugador_1"] == jugador)
         &
-        (
-            parejas["jugador_2"] == companero
-        )
+        (parejas["jugador_2"] == companero)
     )
     |
     (
-        (
-            parejas["jugador_2"] == jugador
-        )
+        (parejas["jugador_2"] == jugador)
         &
-        (
-            parejas["jugador_1"] == companero
-        )
+        (parejas["jugador_1"] == companero)
     )
 ]
 
@@ -297,7 +340,7 @@ if len(dupla) > 0:
 
     c5.metric(
         "Win Rate",
-        f"{dupla['WinRate']}%"
+        f"{dupla['WinRate']:.1f}%"
     )
 
 else:
