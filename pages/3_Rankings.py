@@ -1,177 +1,305 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
+
+# =====================================
+# CARGA DE DATOS
+# =====================================
 
 jugadores = pd.read_csv("jugadores_master.csv")
-equipos = pd.read_csv("equipos_master.csv")
+participaciones = pd.read_csv("participaciones.csv")
 parejas = pd.read_csv("estadisticas_parejas.csv")
 
-st.title("🏆 Rankings")
+# =====================================
+# TITULO
+# =====================================
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
-    [
-        "🏃 Más partidos",
-        "🥇 Más victorias",
-        "📈 Mejor Win Rate",
-        "🔥 Rachas activas",
-        "⚽ Equipos",
-        "🤝 Mejores duplas"
-    ]
+st.title("👤 Jugadores")
+
+# =====================================
+# BUSCADOR
+# =====================================
+
+jugador = st.selectbox(
+    "🔎 Buscar jugador",
+    sorted(jugadores["jugador"].unique()),
+    index=None,
+    placeholder="Escribí el nombre del jugador..."
+)
+
+if jugador is None:
+    st.info(
+        "Seleccioná un jugador para ver sus estadísticas."
+    )
+    st.stop()
+
+# =====================================
+# INFO JUGADOR
+# =====================================
+
+info = jugadores[
+    jugadores["jugador"] == jugador
+].iloc[0]
+
+# =====================================
+# HEADER
+# =====================================
+
+st.header(f"🏅 {jugador}")
+
+# =====================================
+# KPIS PRINCIPALES
+# =====================================
+
+c1, c2, c3, c4 = st.columns(4)
+
+c1.metric(
+    "PJ",
+    int(info["PJ"])
+)
+
+c2.metric(
+    "Victorias",
+    int(info["G"])
+)
+
+c3.metric(
+    "Derrotas",
+    int(info["P"])
+)
+
+c4.metric(
+    "Win Rate",
+    f"{info['WinRate']}%"
+)
+
+st.divider()
+
+# =====================================
+# KPIS SECUNDARIOS
+# =====================================
+
+c1, c2, c3 = st.columns(3)
+
+c1.metric(
+    "Racha Activa",
+    int(info["racha_activa"])
+)
+
+c2.metric(
+    "Mejor Racha",
+    int(info["mejor_racha_ganadora"])
+)
+
+c3.metric(
+    "Empates",
+    int(info["E"])
+)
+
+st.divider()
+
+# =====================================
+# DATOS DESTACADOS
+# =====================================
+
+c1, c2 = st.columns(2)
+
+with c1:
+
+    st.info(
+        f"🏟️ Equipo favorito: **{info['equipo_favorito']}**"
+    )
+
+    st.info(
+        f"🤝 Mejor compañero: **{info['mejor_companero']}**"
+    )
+
+with c2:
+
+    st.info(
+        f"🥊 Rival más frecuente: **{info['rival_mas_frecuente']}**"
+    )
+
+    st.info(
+        f"🔥 Mejor racha histórica: **{info['mejor_racha_ganadora']} victorias**"
+    )
+
+# =====================================
+# EVOLUCIÓN HISTÓRICA
+# =====================================
+
+participaciones["id_partido"] = pd.to_datetime(
+    participaciones["id_partido"]
+)
+
+historial = participaciones[
+    participaciones["jugador"] == jugador
+].copy()
+
+historial["Año"] = (
+    historial["id_partido"]
+    .dt.year
+)
+
+evolucion = (
+    historial
+    .groupby("Año")
+    .agg(
+        PJ=("resultado_jugador", "size"),
+        PG=(
+            "resultado_jugador",
+            lambda x: (x == "G").sum()
+        )
+    )
+    .reset_index()
+)
+
+evolucion["WinRate"] = (
+    evolucion["PG"]
+    / evolucion["PJ"]
+    * 100
+).round(1)
+
+st.divider()
+
+st.subheader(
+    "📈 Evolución histórica"
+)
+
+fig = go.Figure()
+
+# Partidos jugados
+fig.add_bar(
+    x=evolucion["Año"],
+    y=evolucion["PJ"],
+    name="Partidos Jugados"
+)
+
+# Victorias
+fig.add_trace(
+    go.Scatter(
+        x=evolucion["Año"],
+        y=evolucion["PG"],
+        mode="lines+markers",
+        name="Victorias"
+    )
+)
+
+# Win Rate %
+fig.add_trace(
+    go.Scatter(
+        x=evolucion["Año"],
+        y=evolucion["WinRate"],
+        mode="lines+markers",
+        name="Win Rate %",
+        yaxis="y2"
+    )
+)
+
+fig.update_layout(
+    height=550,
+    hovermode="x unified",
+    xaxis_title="Año",
+    yaxis=dict(
+        title="Partidos / Victorias"
+    ),
+    yaxis2=dict(
+        title="Win Rate %",
+        overlaying="y",
+        side="right"
+    ),
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    )
+)
+
+st.plotly_chart(
+    fig,
+    use_container_width=True
 )
 
 # =====================================
-# MÁS PARTIDOS
+# ANALISIS DE DUPLA
 # =====================================
 
-with tab1:
+st.divider()
 
-    st.subheader("Top 20 jugadores con más partidos")
+st.subheader(
+    "🤝 Analizar dupla"
+)
 
-    ranking = (
-        jugadores
-        .sort_values("PJ", ascending=False)
-        [["jugador", "PJ", "WinRate"]]
-        .head(20)
-    )
-
-    st.dataframe(
-        ranking,
-        use_container_width=True,
-        hide_index=True
-    )
-
-# =====================================
-# MÁS VICTORIAS
-# =====================================
-
-with tab2:
-
-    st.subheader("Top 20 jugadores con más victorias")
-
-    ranking = (
-        jugadores
-        .sort_values("G", ascending=False)
-        [["jugador", "G", "PJ", "WinRate"]]
-        .head(20)
-    )
-
-    st.dataframe(
-        ranking,
-        use_container_width=True,
-        hide_index=True
-    )
-
-# =====================================
-# MEJOR WIN RATE
-# =====================================
-
-with tab3:
-
-    st.subheader(
-        "Top 20 Win Rate (mínimo 50 partidos)"
-    )
-
-    ranking = (
+companero = st.selectbox(
+    "Seleccionar segundo jugador",
+    sorted(
         jugadores[
-            jugadores["PJ"] >= 50
-        ]
-        .sort_values(
-            "WinRate",
-            ascending=False
+            jugadores["jugador"] != jugador
+        ]["jugador"].unique()
+    )
+)
+
+dupla = parejas[
+    (
+        (
+            parejas["jugador_1"] == jugador
         )
-        [["jugador", "PJ", "WinRate"]]
-        .head(20)
-    )
-
-    st.dataframe(
-        ranking,
-        use_container_width=True,
-        hide_index=True
-    )
-
-# =====================================
-# RACHAS ACTIVAS
-# =====================================
-
-with tab4:
-
-    st.subheader("Rachas activas")
-
-    ranking = (
-        jugadores
-        .sort_values(
-            "racha_activa",
-            ascending=False
+        &
+        (
+            parejas["jugador_2"] == companero
         )
-        [["jugador", "racha_activa", "WinRate"]]
-        .head(20)
     )
-
-    st.dataframe(
-        ranking,
-        use_container_width=True,
-        hide_index=True
-    )
-
-# =====================================
-# EQUIPOS
-# =====================================
-
-with tab5:
-
-    st.subheader("Equipos más ganadores")
-
-    ranking = (
-        equipos
-        .sort_values(
-            "G",
-            ascending=False
+    |
+    (
+        (
+            parejas["jugador_2"] == jugador
         )
-        [[
-            "equipo",
-            "G",
-            "PJ",
-            "WinRate"
-        ]]
+        &
+        (
+            parejas["jugador_1"] == companero
+        )
     )
+]
 
-    st.dataframe(
-        ranking,
-        use_container_width=True,
-        hide_index=True
-    )
+if len(dupla) > 0:
 
-# =====================================
-# MEJORES DUPLAS
-# =====================================
-
-with tab6:
+    dupla = dupla.iloc[0]
 
     st.subheader(
-        "Mejores duplas históricas (mínimo 50 partidos juntos)"
+        f"📊 {jugador} + {companero}"
     )
 
-    ranking = (
-        parejas[
-            parejas["PJ"] >= 50
-        ]
-        .sort_values(
-            "WinRate",
-            ascending=False
-        )
-        [[
-            "jugador_1",
-            "jugador_2",
-            "PJ",
-            "G",
-            "E",
-            "P",
-            "WinRate"
-        ]]
-        .head(30)
+    c1, c2, c3, c4, c5 = st.columns(5)
+
+    c1.metric(
+        "PJ Juntos",
+        int(dupla["PJ"])
     )
 
-    st.dataframe(
-        ranking,
-        use_container_width=True,
-        hide_index=True
+    c2.metric(
+        "Victorias",
+        int(dupla["G"])
+    )
+
+    c3.metric(
+        "Empates",
+        int(dupla["E"])
+    )
+
+    c4.metric(
+        "Derrotas",
+        int(dupla["P"])
+    )
+
+    c5.metric(
+        "Win Rate",
+        f"{dupla['WinRate']}%"
+    )
+
+else:
+
+    st.warning(
+        "No se encontraron partidos juntos."
     )
