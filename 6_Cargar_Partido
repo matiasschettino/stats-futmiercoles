@@ -1,0 +1,22 @@
+import streamlit as st
+
+USUARIO = st.secrets["ADMIN_USER"]
+PASSWORD = st.secrets["ADMIN_PASSWORD"]
+
+st.title("🔒 Administración")
+
+usuario = st.text_input("Usuario")
+password = st.text_input(
+    "Contraseña",
+    type="password"
+)
+
+if (
+    usuario != USUARIO
+    or
+    password != PASSWORD
+):
+    st.warning(
+        "Acceso restringido"
+    )
+    st.stop()
