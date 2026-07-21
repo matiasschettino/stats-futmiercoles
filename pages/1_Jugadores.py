@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -72,22 +71,51 @@ companeros_relevantes = (
     ]
 )
 
-mejor_companero = (
-    companeros_relevantes
-    .sort_values(
-        "WinRate",
-        ascending=False
+if len(companeros_relevantes) > 0:
+
+    mejor_companero = (
+        companeros_relevantes
+        .sort_values(
+            "WinRate",
+            ascending=False
+        )
+        .iloc[0]
     )
-    .iloc[0]
+
+    peor_companero = (
+        companeros_relevantes
+        .sort_values(
+            "WinRate",
+            ascending=True
+        )
+        .iloc[0]
+    )
+
+else:
+
+    mejor_companero = companero_frecuente
+    peor_companero = companero_frecuente
+
+# ==================================================
+# VARIABLES SEGURAS
+# ==================================================
+
+racha_activa = (
+    0
+    if pd.isna(info["racha_activa"])
+    else int(info["racha_activa"])
 )
 
-peor_companero = (
-    companeros_relevantes
-    .sort_values(
-        "WinRate",
-        ascending=True
-    )
-    .iloc[0]
+mejor_racha = (
+    0
+    if pd.isna(info["mejor_racha_ganadora"])
+    else int(info["mejor_racha_ganadora"])
+)
+
+pj_rival = (
+    0
+    if pd.isna(info["pj_vs_rival_mas_frecuente"])
+    else int(info["pj_vs_rival_mas_frecuente"])
 )
 
 # ==================================================
@@ -132,12 +160,12 @@ c1, c2, c3 = st.columns(3)
 
 c1.metric(
     "Racha Activa",
-    int(info["racha_activa"])
+    racha_activa
 )
 
 c2.metric(
     "Mejor Racha",
-    int(info["mejor_racha_ganadora"])
+    mejor_racha
 )
 
 c3.metric(
@@ -170,7 +198,7 @@ with c1:
 with c2:
 
     st.info(
-        f"🥊 Rival más frecuente: {info['rival_mas_frecuente']} ({int(info['pj_vs_rival_mas_frecuente'])} PJ)"
+        f"🥊 Rival más frecuente: {info['rival_mas_frecuente']} ({pj_rival} PJ)"
     )
 
     st.info(
@@ -178,7 +206,7 @@ with c2:
     )
 
     st.info(
-        f"🔥 Mejor racha histórica: {int(info['mejor_racha_ganadora'])} victorias"
+        f"🔥 Mejor racha histórica: {mejor_racha} victorias"
     )
 
 # ==================================================
@@ -219,21 +247,15 @@ evolucion["WinRate"] = (
 
 st.divider()
 
-st.subheader(
-    "📈 Evolución histórica"
-)
+st.subheader("📈 Evolución histórica")
 
 fig = go.Figure()
-
-# Partidos Jugados
 
 fig.add_bar(
     x=evolucion["Año"],
     y=evolucion["PJ"],
     name="Partidos Jugados"
 )
-
-# Victorias
 
 fig.add_trace(
     go.Scatter(
@@ -243,8 +265,6 @@ fig.add_trace(
         name="Victorias"
     )
 )
-
-# Win Rate
 
 fig.add_trace(
     go.Scatter(
