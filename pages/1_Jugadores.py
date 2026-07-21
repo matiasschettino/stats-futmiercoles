@@ -170,10 +170,9 @@ with c1:
 
 with c2:
 
-   
-st.info(
+   st.info(
     f"🥊 Rival más frecuente: {info['rival_mas_frecuente']} ({int(info['pj_vs_rival_mas_frecuente'])} PJ)"
-)
+   )
 
 
     st.info(
