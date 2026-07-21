@@ -62,22 +62,3 @@ st.dataframe(
     use_container_width=True
 )
 
-#check
-
-st.divider()
-
-partidos = pd.read_csv(
-    "partidos.csv"
-)
-
-st.subheader("Debug")
-
-st.write(
-    "Filas partidos.csv:",
-    len(partidos)
-)
-
-st.write(
-    "PJ máximo jugadores:",
-    jugadores["PJ"].max()
-)
