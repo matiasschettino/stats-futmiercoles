@@ -328,6 +328,7 @@ with tab3:
 
         st.balloons()
 
+
 # ==================================================
 # PARTIDOS CARGADOS
 # ==================================================
@@ -343,15 +344,11 @@ with tab4:
         .execute()
     )
 
-    partidos_df = pd.DataFrame(
-        partidos.data
-    )
+    partidos_df = pd.DataFrame(partidos.data)
 
     if partidos_df.empty:
 
-        st.info(
-            "No hay partidos cargados."
-        )
+        st.info("No hay partidos cargados.")
 
     else:
 
@@ -392,13 +389,11 @@ with tab4:
 
         partidos_filtrados = partidos_df[
             (
-                partidos_df["fecha"].dt.date
-                >= fecha_desde
+                partidos_df["fecha"].dt.date >= fecha_desde
             )
             &
             (
-                partidos_df["fecha"].dt.date
-                <= fecha_hasta
+                partidos_df["fecha"].dt.date <= fecha_hasta
             )
         ].copy()
 
@@ -452,19 +447,6 @@ with tab4:
 
             partido_id = partido["id"]
 
-            st.subheader("⚽ Detalle del partido")
-
-            st.write(
-                f"**{partido['equipo_local']} "
-                f"{int(partido['goles_local'])} - "
-                f"{int(partido['goles_visitante'])} "
-                f"{partido['equipo_visitante']}**"
-            )
-
-            st.write(
-                f"📅 {partido['fecha'].strftime('%d/%m/%Y')}"
-            )
-
             participaciones = (
                 supabase
                 .table("participaciones")
@@ -480,81 +462,202 @@ with tab4:
                 participaciones.data
             )
 
+            jugadores_local_actual = (
+                participaciones_df[
+                    participaciones_df["equipo"]
+                    ==
+                    partido["equipo_local"]
+                ]["jugador"]
+                .tolist()
+            )
+
+            jugadores_visitante_actual = (
+                participaciones_df[
+                    participaciones_df["equipo"]
+                    ==
+                    partido["equipo_visitante"]
+                ]["jugador"]
+                .tolist()
+            )
+
+            st.subheader("⚽ Detalle del partido")
+
+            st.write(
+                f"**{partido['equipo_local']} "
+                f"{int(partido['goles_local'])} - "
+                f"{int(partido['goles_visitante'])} "
+                f"{partido['equipo_visitante']}**"
+            )
+
+            st.write(
+                f"📅 {partido['fecha'].strftime('%d/%m/%Y')}"
+            )
+
+            st.divider()
+
+            st.subheader("✏️ Editar partido")
+
+            nueva_fecha = st.date_input(
+                "Fecha",
+                value=partido["fecha"].date(),
+                key=f"fecha_{partido_id}"
+            )
+
             col1, col2 = st.columns(2)
 
             with col1:
 
-                st.markdown(
-                    f"### {partido['equipo_local']}"
-                )
-
-                jugadores_local = (
-                    participaciones_df[
-                        participaciones_df["equipo"]
-                        ==
+                nuevo_equipo_local = st.selectbox(
+                    "Equipo Local",
+                    lista_equipos,
+                    index=lista_equipos.index(
                         partido["equipo_local"]
-                    ]["jugador"]
-                    .tolist()
+                    ),
+                    key=f"el_{partido_id}"
                 )
 
-                for jugador in jugadores_local:
+                nuevo_goles_local = st.number_input(
+                    "Goles Local",
+                    min_value=0,
+                    value=int(partido["goles_local"]),
+                    key=f"gl_{partido_id}"
+                )
 
-                    st.write(
-                        f"• {jugador}"
-                    )
+                nuevos_jugadores_local = st.multiselect(
+                    "Jugadores Local",
+                    lista_jugadores,
+                    default=jugadores_local_actual,
+                    key=f"jl_{partido_id}"
+                )
 
             with col2:
 
-                st.markdown(
-                    f"### {partido['equipo_visitante']}"
-                )
-
-                jugadores_visitante = (
-                    participaciones_df[
-                        participaciones_df["equipo"]
-                        ==
+                nuevo_equipo_visitante = st.selectbox(
+                    "Equipo Visitante",
+                    lista_equipos,
+                    index=lista_equipos.index(
                         partido["equipo_visitante"]
-                    ]["jugador"]
-                    .tolist()
+                    ),
+                    key=f"ev_{partido_id}"
                 )
 
-                for jugador in jugadores_visitante:
+                nuevo_goles_visitante = st.number_input(
+                    "Goles Visitante",
+                    min_value=0,
+                    value=int(partido["goles_visitante"]),
+                    key=f"gv_{partido_id}"
+                )
 
-                    st.write(
-                        f"• {jugador}"
+                nuevos_jugadores_visitante = st.multiselect(
+                    "Jugadores Visitante",
+                    lista_jugadores,
+                    default=jugadores_visitante_actual,
+                    key=f"jv_{partido_id}"
+                )
+
+            col_guardar, col_borrar = st.columns(2)
+
+            with col_guardar:
+
+                if st.button(
+                    "💾 Guardar cambios",
+                    key=f"save_{partido_id}"
+                ):
+
+                    (
+                        supabase
+                        .table("partidos")
+                        .update(
+                            {
+                                "fecha": str(nueva_fecha),
+                                "equipo_local": nuevo_equipo_local,
+                                "goles_local": nuevo_goles_local,
+                                "equipo_visitante": nuevo_equipo_visitante,
+                                "goles_visitante": nuevo_goles_visitante
+                            }
+                        )
+                        .eq("id", partido_id)
+                        .execute()
                     )
 
-            st.divider()
-
-            if st.button(
-                "🗑️ Eliminar partido seleccionado",
-                type="primary"
-            ):
-
-                (
-                    supabase
-                    .table("participaciones")
-                    .delete()
-                    .eq(
-                        "partido_id",
-                        partido_id
+                    (
+                        supabase
+                        .table("participaciones")
+                        .delete()
+                        .eq(
+                            "partido_id",
+                            partido_id
+                        )
+                        .execute()
                     )
-                    .execute()
-                )
 
-                (
-                    supabase
-                    .table("partidos")
-                    .delete()
-                    .eq(
-                        "id",
-                        partido_id
+                    registros = []
+
+                    for jugador in nuevos_jugadores_local:
+
+                        registros.append(
+                            {
+                                "partido_id": partido_id,
+                                "jugador": jugador,
+                                "equipo": nuevo_equipo_local
+                            }
+                        )
+
+                    for jugador in nuevos_jugadores_visitante:
+
+                        registros.append(
+                            {
+                                "partido_id": partido_id,
+                                "jugador": jugador,
+                                "equipo": nuevo_equipo_visitante
+                            }
+                        )
+
+                    (
+                        supabase
+                        .table("participaciones")
+                        .insert(registros)
+                        .execute()
                     )
-                    .execute()
-                )
 
-                st.success(
-                    "✅ Partido eliminado correctamente"
-                )
+                    st.success(
+                        "✅ Partido actualizado correctamente"
+                    )
 
-                st.rerun()
+                    st.rerun()
+
+            with col_borrar:
+
+                if st.button(
+                    "🗑️ Eliminar partido",
+                    key=f"delete_{partido_id}"
+                ):
+
+                    (
+                        supabase
+                        .table("participaciones")
+                        .delete()
+                        .eq(
+                            "partido_id",
+                            partido_id
+                        )
+                        .execute()
+                    )
+
+                    (
+                        supabase
+                        .table("partidos")
+                        .delete()
+                        .eq(
+                            "id",
+                            partido_id
+                        )
+                        .execute()
+                    )
+
+                    st.success(
+                        "✅ Partido eliminado correctamente"
+                    )
+
+                    st.rerun()
+
