@@ -18,6 +18,36 @@ partidos_historicos = pd.read_csv(
     "partidos.csv"
 )
 
+st.subheader("Partidos válidos estimados")
+
+partidos_validos = partidos_historicos[
+    (
+        partidos_historicos["Fecha"].notna()
+    )
+    &
+    (
+        partidos_historicos["Local"].notna()
+    )
+    &
+    (
+        partidos_historicos["Otros"].notna()
+    )
+    &
+    (
+        ~partidos_historicos["Local"]
+        .astype(str)
+        .str.contains(
+            "NO SE JUGO|PARTIDO FALLIDO",
+            case=False,
+            na=False
+        )
+    )
+]
+
+st.write(
+    f"Partidos válidos: {len(partidos_validos)}"
+)
+
 st.subheader("Registros descartados")
 
 descartados = partidos_historicos[
