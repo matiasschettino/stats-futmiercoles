@@ -10,21 +10,6 @@ st.set_page_config(
 jugadores = pd.read_csv("jugadores_master.csv")
 equipos = pd.read_csv("equipos_master.csv")
 
-#Agrego para chequear#
-
-partidos.csv"
-)
-
-st.write(
-    "Filas partidos.csv:",
-    len(partidos)
-)
-st.write(
-    "PJ máximo:",
-    jugadores["PJ"].max()
-)
-
-#Cierro el agrego para chequear
 
 st.title("⚽ Stats FutMiércoles")
 
