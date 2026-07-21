@@ -26,7 +26,7 @@ if (
 st.success("✅ Acceso autorizado")
 
 # ==================================================
-# CONEXIÓN
+# CONEXIÓN SUPABASE
 # ==================================================
 
 supabase = get_supabase()
@@ -55,15 +55,21 @@ jugadores_df = pd.DataFrame(jugadores.data)
 lista_equipos = []
 
 if not equipos_df.empty:
+
     lista_equipos = sorted(
-        equipos_df["equipo"].dropna().tolist()
+        equipos_df["equipo"]
+        .dropna()
+        .tolist()
     )
 
 lista_jugadores = []
 
 if not jugadores_df.empty:
+
     lista_jugadores = sorted(
-        jugadores_df["jugador"].dropna().tolist()
+        jugadores_df["jugador"]
+        .dropna()
+        .tolist()
     )
 
 # ==================================================
@@ -74,7 +80,8 @@ tab1, tab2, tab3, tab4 = st.tabs(
     [
         "⚽ Equipos",
         "👤 Jugadores",
-        "🏆 Cargar Partido"
+        "🏆 Cargar Partido",
+        "📋 Partidos"
     ]
 )
 
@@ -118,7 +125,9 @@ with tab1:
                 }
             ).execute()
 
-            st.success("Equipo guardado")
+            st.success(
+                "Equipo guardado"
+            )
 
             st.rerun()
 
@@ -162,7 +171,9 @@ with tab2:
                 }
             ).execute()
 
-            st.success("Jugador guardado")
+            st.success(
+                "Jugador guardado"
+            )
 
             st.rerun()
 
@@ -191,8 +202,8 @@ with tab3:
         goles_local = st.number_input(
             "Goles Local",
             min_value=0,
-            step=1,
-            value=0
+            value=0,
+            step=1
         )
 
         jugadores_local = st.multiselect(
@@ -213,8 +224,8 @@ with tab3:
         goles_visitante = st.number_input(
             "Goles Visitante",
             min_value=0,
-            step=1,
-            value=0
+            value=0,
+            step=1
         )
 
         jugadores_visitante = st.multiselect(
@@ -226,10 +237,6 @@ with tab3:
     st.divider()
 
     if st.button("Guardar Partido"):
-
-        # ======================
-        # VALIDACIONES
-        # ======================
 
         if equipo_local == equipo_visitante:
 
@@ -269,10 +276,6 @@ with tab3:
 
             st.stop()
 
-        # ======================
-        # INSERTAR PARTIDO
-        # ======================
-
         partido = (
             supabase
             .table("partidos")
@@ -289,10 +292,6 @@ with tab3:
         )
 
         partido_id = partido.data[0]["id"]
-
-        # ======================
-        # PARTICIPACIONES
-        # ======================
 
         registros = []
 
@@ -329,7 +328,9 @@ with tab3:
 
         st.balloons()
 
-#Check de datos#
+# ==================================================
+# PARTIDOS CARGADOS
+# ==================================================
 
 with tab4:
 
@@ -367,7 +368,7 @@ with tab4:
         )
 
         cantidad = st.slider(
-            "Cantidad de partidos",
+            "Cantidad de partidos a mostrar",
             min_value=10,
             max_value=200,
             value=50,
