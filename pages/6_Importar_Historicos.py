@@ -104,8 +104,92 @@ st.write(
 
 st.divider()
 
+partidos_validos = partidos_historicos.copy()
 
+st.write(
+    f"Inicial: {len(partidos_validos)}"
+)
 
+# Fecha
+partidos_validos = partidos_validos[
+    partidos_validos["Fecha"].notna()
+]
+
+st.write(
+    f"Después de Fecha: {len(partidos_validos)}"
+)
+
+# Local
+partidos_validos = partidos_validos[
+    partidos_validos["Local"].notna()
+]
+
+st.write(
+    f"Después de Local: {len(partidos_validos)}"
+)
+
+# Visitante
+partidos_validos = partidos_validos[
+    partidos_validos["Otros"].notna()
+]
+
+st.write(
+    f"Después de Visitante: {len(partidos_validos)}"
+)
+
+# Partidos no jugados
+partidos_validos = partidos_validos[
+    ~partidos_validos["Local"]
+    .astype(str)
+    .str.contains(
+        "PARTIDO FALLIDO|NO SE JUGO",
+        case=False,
+        na=False
+    )
+]
+
+st.write(
+    f"Después de No Jugados: {len(partidos_validos)}"
+)
+
+# Duplicados
+partidos_validos = (
+    partidos_validos
+    .sort_values("Crónica")
+    .drop_duplicates(
+        subset=["Crónica"],
+        keep="first"
+    )
+)
+
+st.write(
+    f"Después de Duplicados: {len(partidos_validos)}"
+)
+
+st.subheader("Partidos con visitante vacío")
+
+st.write(
+    len(
+        partidos_historicos[
+            partidos_historicos["Otros"].isna()
+        ]
+    )
+)
+
+st.dataframe(
+    partidos_historicos[
+        partidos_historicos["Otros"].isna()
+    ][
+        [
+            "Fecha",
+            "Local",
+            "Otros",
+            "goles_local",
+            "goles_visitante",
+            "Crónica"
+        ]
+    ]
+)
 # ==================================================
 # JUGADORES Y EQUIPOS
 # ==================================================
