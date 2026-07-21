@@ -367,16 +367,194 @@ with tab4:
             )
         )
 
-        cantidad = st.slider(
-            "Cantidad de partidos a mostrar",
-            min_value=10,
-            max_value=200,
-            value=50,
-            step=10
-        )
+        fecha_min = partidos_df["fecha"].min().date()
+        fecha_max = partidos_df["fecha"].max().date()
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            fecha_desde = st.date_input(
+                "Desde",
+                value=fecha_min,
+                min_value=fecha_min,
+                max_value=fecha_max
+            )
+
+        with col2:
+
+            fecha_hasta = st.date_input(
+                "Hasta",
+                value=fecha_max,
+                min_value=fecha_min,
+                max_value=fecha_max
+            )
+
+        partidos_filtrados = partidos_df[
+            (
+                partidos_df["fecha"].dt.date
+                >= fecha_desde
+            )
+            &
+            (
+                partidos_df["fecha"].dt.date
+                <= fecha_hasta
+            )
+        ].copy()
 
         st.dataframe(
-            partidos_df.head(cantidad),
+            partidos_filtrados[
+                [
+                    "fecha",
+                    "equipo_local",
+                    "goles_local",
+                    "goles_visitante",
+                    "equipo_visitante"
+                ]
+            ],
             use_container_width=True,
             hide_index=True
         )
+
+        if partidos_filtrados.empty:
+
+            st.warning(
+                "No hay partidos para ese rango de fechas."
+            )
+
+        else:
+
+            partidos_filtrados["descripcion"] = (
+                partidos_filtrados["fecha"]
+                .dt.strftime("%d/%m/%Y")
+                + " | "
+                + partidos_filtrados["equipo_local"]
+                + " "
+                + partidos_filtrados["goles_local"].astype(str)
+                + " - "
+                + partidos_filtrados["goles_visitante"].astype(str)
+                + " "
+                + partidos_filtrados["equipo_visitante"]
+            )
+
+            st.divider()
+
+            partido_seleccionado = st.selectbox(
+                "Seleccionar partido",
+                partidos_filtrados["descripcion"]
+            )
+
+            partido = partidos_filtrados[
+                partidos_filtrados["descripcion"]
+                ==
+                partido_seleccionado
+            ].iloc[0]
+
+            partido_id = partido["id"]
+
+            st.subheader("⚽ Detalle del partido")
+
+            st.write(
+                f"**{partido['equipo_local']} "
+                f"{int(partido['goles_local'])} - "
+                f"{int(partido['goles_visitante'])} "
+                f"{partido['equipo_visitante']}**"
+            )
+
+            st.write(
+                f"📅 {partido['fecha'].strftime('%d/%m/%Y')}"
+            )
+
+            participaciones = (
+                supabase
+                .table("participaciones")
+                .select("*")
+                .eq(
+                    "partido_id",
+                    partido_id
+                )
+                .execute()
+            )
+
+            participaciones_df = pd.DataFrame(
+                participaciones.data
+            )
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+
+                st.markdown(
+                    f"### {partido['equipo_local']}"
+                )
+
+                jugadores_local = (
+                    participaciones_df[
+                        participaciones_df["equipo"]
+                        ==
+                        partido["equipo_local"]
+                    ]["jugador"]
+                    .tolist()
+                )
+
+                for jugador in jugadores_local:
+
+                    st.write(
+                        f"• {jugador}"
+                    )
+
+            with col2:
+
+                st.markdown(
+                    f"### {partido['equipo_visitante']}"
+                )
+
+                jugadores_visitante = (
+                    participaciones_df[
+                        participaciones_df["equipo"]
+                        ==
+                        partido["equipo_visitante"]
+                    ]["jugador"]
+                    .tolist()
+                )
+
+                for jugador in jugadores_visitante:
+
+                    st.write(
+                        f"• {jugador}"
+                    )
+
+            st.divider()
+
+            if st.button(
+                "🗑️ Eliminar partido seleccionado",
+                type="primary"
+            ):
+
+                (
+                    supabase
+                    .table("participaciones")
+                    .delete()
+                    .eq(
+                        "partido_id",
+                        partido_id
+                    )
+                    .execute()
+                )
+
+                (
+                    supabase
+                    .table("partidos")
+                    .delete()
+                    .eq(
+                        "id",
+                        partido_id
+                    )
+                    .execute()
+                )
+
+                st.success(
+                    "✅ Partido eliminado correctamente"
+                )
+
+                st.rerun()
