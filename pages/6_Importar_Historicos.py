@@ -18,108 +18,23 @@ partidos_historicos = pd.read_csv(
     "partidos.csv"
 )
 
-st.subheader("Control de calidad - Partidos")
+st.subheader("Registros descartados")
 
-st.write(
-    f"Total filas partidos.csv: {len(partidos_historicos)}"
-)
-
-st.write(
-    "Fechas no nulas:",
-    partidos_historicos["Fecha"].notna().sum()
-)
-
-st.write(
-    "Local no nulo:",
-    partidos_historicos["Local"].notna().sum()
-)
-
-st.write(
-    "Visitante no nulo:",
-    partidos_historicos["Otros"].notna().sum()
-)
-
-st.subheader("Primeras 10 filas")
-
-st.dataframe(
-    partidos_historicos[
-        [
-            "Fecha",
-            "Local",
-            "Otros",
-            "goles_local",
-            "goles_visitante"
-        ]
-    ].head(10)
-)
-
-st.subheader("Últimas 10 filas")
-
-st.dataframe(
-    partidos_historicos[
-        [
-            "Fecha",
-            "Local",
-            "Otros",
-            "goles_local",
-            "goles_visitante"
-        ]
-    ].tail(10)
-)
-
-st.subheader("Filas con problemas")
-
-st.write(
-    partidos_historicos[
+descartados = partidos_historicos[
+    (
         partidos_historicos["Fecha"].isna()
-    ].head(20)
-)
-
-st.subheader("Partidos sin visitante")
-
-st.dataframe(
-    partidos_historicos[
+    )
+    |
+    (
+        partidos_historicos["Local"].isna()
+    )
+    |
+    (
         partidos_historicos["Otros"].isna()
-    ]
-)
-
-st.subheader("Partidos con fecha válida")
-
-partidos_validos = partidos_historicos[
-    (
-        partidos_historicos["Fecha"].notna()
     )
-    &
+    |
     (
-        partidos_historicos["Local"].notna()
-    )
-    &
-    (
-        partidos_historicos["Otros"].notna()
-    )
-]
-
-st.write(
-    f"Partidos válidos: {len(partidos_validos)}"
-)
-
-st.subheader("Partidos válidos estimados")
-
-partidos_validos = partidos_historicos[
-    (
-        partidos_historicos["Fecha"].notna()
-    )
-    &
-    (
-        partidos_historicos["Local"].notna()
-    )
-    &
-    (
-        partidos_historicos["Otros"].notna()
-    )
-    &
-    (
-        ~partidos_historicos["Local"]
+        partidos_historicos["Local"]
         .astype(str)
         .str.contains(
             "NO SE JUGO|PARTIDO FALLIDO",
@@ -130,8 +45,10 @@ partidos_validos = partidos_historicos[
 ]
 
 st.write(
-    f"Partidos válidos: {len(partidos_validos)}"
+    f"Descartados: {len(descartados)}"
 )
+
+st.dataframe(descartados)
 
 # ==================================================
 # JUGADORES Y EQUIPOS
