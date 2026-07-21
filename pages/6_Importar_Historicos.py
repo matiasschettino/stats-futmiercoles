@@ -6,12 +6,24 @@ st.title("📥 Importar Históricos")
 
 supabase = get_supabase()
 
-participaciones = pd.read_csv(
+# ==================================================
+# CARGA DE CSV
+# ==================================================
+
+participaciones_historicas = pd.read_csv(
     "participaciones.csv"
 )
 
+partidos_historicos = pd.read_csv(
+    "partidos.csv"
+)
+
+# ==================================================
+# JUGADORES Y EQUIPOS
+# ==================================================
+
 jugadores_historicos = sorted(
-    participaciones["jugador"]
+    participaciones_historicas["jugador"]
     .dropna()
     .astype(str)
     .str.strip()
@@ -19,7 +31,7 @@ jugadores_historicos = sorted(
 )
 
 equipos_historicos = sorted(
-    participaciones["equipo"]
+    participaciones_historicas["equipo"]
     .dropna()
     .astype(str)
     .str.strip()
@@ -27,14 +39,28 @@ equipos_historicos = sorted(
 )
 
 st.write(
-    f"Jugadores encontrados: {len(jugadores_historicos)}"
+    f"👤 Jugadores encontrados: {len(jugadores_historicos)}"
 )
 
 st.write(
-    f"Equipos encontrados: {len(equipos_historicos)}"
+    f"⚽ Equipos encontrados: {len(equipos_historicos)}"
 )
 
-if st.button("Importar Jugadores"):
+st.write(
+    f"🏆 Partidos encontrados: {len(partidos_historicos)}"
+)
+
+st.write(
+    f"📋 Participaciones encontradas: {len(participaciones_historicas)}"
+)
+
+st.divider()
+
+# ==================================================
+# IMPORTAR JUGADORES
+# ==================================================
+
+if st.button("👤 Importar Jugadores"):
 
     actuales = (
         supabase
@@ -56,21 +82,28 @@ if st.button("Importar Jugadores"):
 
         if nombre.upper() not in existentes:
 
-            supabase.table(
-                "jugadores"
-            ).insert(
-                {
-                    "jugador": nombre
-                }
-            ).execute()
+            (
+                supabase
+                .table("jugadores")
+                .insert(
+                    {
+                        "jugador": nombre
+                    }
+                )
+                .execute()
+            )
 
             nuevos += 1
 
     st.success(
-        f"{nuevos} jugadores importados"
+        f"✅ {nuevos} jugadores importados"
     )
 
-if st.button("Importar Equipos"):
+# ==================================================
+# IMPORTAR EQUIPOS
+# ==================================================
+
+if st.button("⚽ Importar Equipos"):
 
     actuales = (
         supabase
@@ -92,16 +125,163 @@ if st.button("Importar Equipos"):
 
         if nombre.upper() not in existentes:
 
-            supabase.table(
-                "equipos"
-            ).insert(
-                {
-                    "equipo": nombre
-                }
-            ).execute()
+            (
+                supabase
+                .table("equipos")
+                .insert(
+                    {
+                        "equipo": nombre
+                    }
+                )
+                .execute()
+            )
 
             nuevos += 1
 
     st.success(
-        f"{nuevos} equipos importados"
+        f"✅ {nuevos} equipos importados"
     )
+
+# ==================================================
+# IMPORTAR PARTIDOS
+# ==================================================
+
+if st.button("🏆 Importar Partidos"):
+
+    actuales = (
+        supabase
+        .table("partidos")
+        .select("*")
+        .execute()
+    )
+
+    existentes = {
+        (
+            str(x["fecha"]),
+            str(x["equipo_local"]),
+            int(x["goles_local"]),
+            str(x["equipo_visitante"]),
+            int(x["goles_visitante"])
+        )
+        for x in actuales.data
+    }
+
+    nuevos = 0
+
+    for _, fila in partidos_historicos.iterrows():
+
+        try:
+
+            clave = (
+                str(fila["Fecha"])[:10],
+                str(fila["Local"]),
+                int(fila["goles_local"]),
+                str(fila["Otros"]),
+                int(fila["goles_visitante"])
+            )
+
+            if clave not in existentes:
+
+                (
+                    supabase
+                    .table("partidos")
+                    .insert(
+                        {
+                            "fecha": str(fila["Fecha"])[:10],
+                            "equipo_local": str(fila["Local"]),
+                            "goles_local": int(fila["goles_local"]),
+                            "equipo_visitante": str(fila["Otros"]),
+                            "goles_visitante": int(fila["goles_visitante"])
+                        }
+                    )
+                    .execute()
+                )
+
+                nuevos += 1
+
+        except Exception:
+
+            continue
+
+    st.success(
+        f"✅ {nuevos} partidos importados"
+    )
+
+# ==================================================
+# IMPORTAR PARTICIPACIONES
+# ==================================================
+
+if st.button("📋 Importar Participaciones"):
+
+    partidos_supabase = (
+        supabase
+        .table("partidos")
+        .select("*")
+        .execute()
+    )
+
+    partidos_db = pd.DataFrame(
+        partidos_supabase.data
+    )
+
+    if partidos_db.empty:
+
+        st.error(
+            "Primero importá los partidos."
+        )
+
+    else:
+
+        registros = []
+
+        for _, fila in participaciones_historicas.iterrows():
+
+            try:
+
+                fecha = str(
+                    fila["id_partido"]
+                )[:10]
+
+                partido_match = partidos_db[
+                    partidos_db["fecha"]
+                    .astype(str)
+                    ==
+                    fecha
+                ]
+
+                if len(partido_match) == 0:
+                    continue
+
+                partido_id = (
+                    partido_match
+                    .iloc[0]["id"]
+                )
+
+                registros.append(
+                    {
+                        "partido_id": partido_id,
+                        "jugador": str(
+                            fila["jugador"]
+                        ),
+                        "equipo": str(
+                            fila["equipo"]
+                        )
+                    }
+                )
+
+            except Exception:
+
+                continue
+
+        if len(registros) > 0:
+
+            (
+                supabase
+                .table("participaciones")
+                .insert(registros)
+                .execute()
+            )
+
+        st.success(
+            f"✅ {len(registros)} participaciones importadas"
+        )
