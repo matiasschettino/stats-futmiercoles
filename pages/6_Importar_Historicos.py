@@ -17,69 +17,48 @@ participaciones_historicas = pd.read_csv(
 partidos_historicos = pd.read_csv(
     "partidos.csv"
 )
+partidos_validos = partidos_historicos.copy()
 
-st.subheader("Partidos válidos estimados")
+# datos obligatorios
+partidos_validos = partidos_validos[
+    partidos_validos["Fecha"].notna()
+]
 
-partidos_validos = partidos_historicos[
-    (
-        partidos_historicos["Fecha"].notna()
-    )
-    &
-    (
-        partidos_historicos["Local"].notna()
-    )
-    &
-    (
-        partidos_historicos["Otros"].notna()
-    )
-    &
-    (
-        ~partidos_historicos["Local"]
-        .astype(str)
-        .str.contains(
-            "NO SE JUGO|PARTIDO FALLIDO",
-            case=False,
-            na=False
-        )
+partidos_validos = partidos_validos[
+    partidos_validos["Local"].notna()
+]
+
+partidos_validos = partidos_validos[
+    partidos_validos["Otros"].notna()
+]
+
+# descartamos partidos no jugados
+partidos_validos = partidos_validos[
+    ~partidos_validos["Local"]
+    .astype(str)
+    .str.contains(
+        "NO SE JUGO|PARTIDO FALLIDO",
+        case=False,
+        na=False
     )
 ]
+
+# eliminar duplicados por cronica
+partidos_validos = (
+    partidos_validos
+    .sort_values("Crónica")
+    .drop_duplicates(
+        subset=["Crónica"],
+        keep="first"
+    )
+)
+
+st.subheader("Control final")
 
 st.write(
     f"Partidos válidos: {len(partidos_validos)}"
 )
-
-st.subheader("Registros descartados")
-
-descartados = partidos_historicos[
-    (
-        partidos_historicos["Fecha"].isna()
-    )
-    |
-    (
-        partidos_historicos["Local"].isna()
-    )
-    |
-    (
-        partidos_historicos["Otros"].isna()
-    )
-    |
-    (
-        partidos_historicos["Local"]
-        .astype(str)
-        .str.contains(
-            "NO SE JUGO|PARTIDO FALLIDO",
-            case=False,
-            na=False
-        )
-    )
-]
-
-st.write(
-    f"Descartados: {len(descartados)}"
-)
-
-st.dataframe(descartados)
-
+``
 # ==================================================
 # JUGADORES Y EQUIPOS
 # ==================================================
