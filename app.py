@@ -8,11 +8,11 @@ st.set_page_config(
 )
 
 jugadores = pd.read_csv(
-    "data/jugadores_master.csv"
+    "jugadores_master.csv"
 )
 
 equipos = pd.read_csv(
-    "data/equipos_master.csv"
+    "equipos_master.csv"
 )
 
 st.title("⚽ Fútbol Histórico")
