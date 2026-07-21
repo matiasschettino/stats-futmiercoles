@@ -6,17 +6,9 @@ st.title("📥 Importar Históricos")
 
 supabase = get_supabase()
 
-# =======================
-# CARGAR CSV
-# =======================
-
 participaciones = pd.read_csv(
     "participaciones.csv"
 )
-
-# =======================
-# JUGADORES
-# =======================
 
 jugadores_historicos = sorted(
     participaciones["jugador"]
@@ -26,10 +18,6 @@ jugadores_historicos = sorted(
     .unique()
 )
 
-# =======================
-# EQUIPOS
-# =======================
-
 equipos_historicos = sorted(
     participaciones["equipo"]
     .dropna()
@@ -38,8 +26,13 @@ equipos_historicos = sorted(
     .unique()
 )
 
-st.write(f"Jugadores encontrados: {len(jugadores_historicos)}")
-st.write(f"Equipos encontrados: {len(equipos_historicos)}")
+st.write(
+    f"Jugadores encontrados: {len(jugadores_historicos)}"
+)
+
+st.write(
+    f"Equipos encontrados: {len(equipos_historicos)}"
+)
 
 if st.button("Importar Jugadores"):
 
@@ -77,7 +70,7 @@ if st.button("Importar Jugadores"):
         f"{nuevos} jugadores importados"
     )
 
-    if st.button("Importar Equipos"):
+if st.button("Importar Equipos"):
 
     actuales = (
         supabase
