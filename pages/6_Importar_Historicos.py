@@ -18,6 +18,62 @@ partidos_historicos = pd.read_csv(
     "partidos.csv"
 )
 
+st.subheader("Control de calidad - Partidos")
+
+st.write(
+    f"Total filas partidos.csv: {len(partidos_historicos)}"
+)
+
+st.write(
+    "Fechas no nulas:",
+    partidos_historicos["Fecha"].notna().sum()
+)
+
+st.write(
+    "Local no nulo:",
+    partidos_historicos["Local"].notna().sum()
+)
+
+st.write(
+    "Visitante no nulo:",
+    partidos_historicos["Otros"].notna().sum()
+)
+
+st.subheader("Primeras 10 filas")
+
+st.dataframe(
+    partidos_historicos[
+        [
+            "Fecha",
+            "Local",
+            "Otros",
+            "goles_local",
+            "goles_visitante"
+        ]
+    ].head(10)
+)
+
+st.subheader("Últimas 10 filas")
+
+st.dataframe(
+    partidos_historicos[
+        [
+            "Fecha",
+            "Local",
+            "Otros",
+            "goles_local",
+            "goles_visitante"
+        ]
+    ].tail(10)
+)
+
+st.subheader("Filas con problemas")
+
+st.write(
+    partidos_historicos[
+        partidos_historicos["Fecha"].isna()
+    ].head(20)
+)
 # ==================================================
 # JUGADORES Y EQUIPOS
 # ==================================================
