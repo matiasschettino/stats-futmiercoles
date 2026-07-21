@@ -29,10 +29,16 @@ c2.metric(
     len(equipos)
 )
 
-c3.metric(
-    "Partidos Jugados",
-    int(jugadores["PJ"].max())
+
+partidos = pd.read_csv(
+    "partidos.csv"
 )
+
+c3.metric(
+    "Partidos Históricos",
+    len(partidos)
+)
+
 
 st.divider()
 
