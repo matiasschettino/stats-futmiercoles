@@ -1,30 +1,20 @@
 import streamlit as st
+import pandas as pd
 from supabase_utils import get_supabase
-import traceback
 
-st.title("Debug Supabase")
+st.title("Admin")
 
-try:
+supabase = get_supabase()
 
-    supabase = get_supabase()
+equipos = (
+    supabase
+    .table("equipos")
+    .select("*")
+    .execute()
+)
 
-    st.success("✅ Cliente creado")
+st.success("Conexión OK")
 
-    respuesta = (
-        supabase
-        .table("equipos")
-        .select("*")
-        .execute()
-    )
-
-    st.success("✅ Consulta ejecutada")
-
-    st.write(respuesta.data)
-
-except Exception as e:
-
-    st.error(type(e).__name__)
-
-    st.code(str(e))
-
-    st.code(traceback.format_exc())
+st.dataframe(
+    pd.DataFrame(equipos.data)
+)
