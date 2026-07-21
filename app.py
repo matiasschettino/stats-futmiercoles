@@ -29,16 +29,38 @@ c2.metric(
     len(equipos)
 )
 
-
 partidos = pd.read_csv(
     "partidos.csv"
 )
 
+partidos_validos = partidos[
+    (
+        partidos["Fecha"].notna()
+    )
+    &
+    (
+        partidos["Local"].notna()
+    )
+    &
+    (
+        partidos["Otros"].notna()
+    )
+    &
+    (
+        ~partidos["Local"]
+        .astype(str)
+        .str.contains(
+            "PARTIDO FALLIDO|NO SE JUGO",
+            case=False,
+            na=False
+        )
+    )
+]
+
 c3.metric(
     "Partidos Históricos",
-    len(partidos)
+    len(partidos_validos)
 )
-
 
 st.divider()
 
