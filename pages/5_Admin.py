@@ -328,3 +328,54 @@ with tab3:
         )
 
         st.balloons()
+
+#Check de datos#
+
+with tab4:
+
+    st.subheader("📋 Partidos cargados")
+
+    partidos = (
+        supabase
+        .table("partidos")
+        .select("*")
+        .execute()
+    )
+
+    partidos_df = pd.DataFrame(
+        partidos.data
+    )
+
+    if partidos_df.empty:
+
+        st.info(
+            "No hay partidos cargados."
+        )
+
+    else:
+
+        partidos_df["fecha"] = pd.to_datetime(
+            partidos_df["fecha"]
+        )
+
+        partidos_df = (
+            partidos_df
+            .sort_values(
+                "fecha",
+                ascending=False
+            )
+        )
+
+        cantidad = st.slider(
+            "Cantidad de partidos",
+            min_value=10,
+            max_value=200,
+            value=50,
+            step=10
+        )
+
+        st.dataframe(
+            partidos_df.head(cantidad),
+            use_container_width=True,
+            hide_index=True
+        )
