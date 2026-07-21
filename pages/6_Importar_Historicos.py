@@ -74,6 +74,35 @@ st.write(
         partidos_historicos["Fecha"].isna()
     ].head(20)
 )
+
+st.subheader("Partidos sin visitante")
+
+st.dataframe(
+    partidos_historicos[
+        partidos_historicos["Otros"].isna()
+    ]
+)
+
+st.subheader("Partidos con fecha válida")
+
+partidos_validos = partidos_historicos[
+    (
+        partidos_historicos["Fecha"].notna()
+    )
+    &
+    (
+        partidos_historicos["Local"].notna()
+    )
+    &
+    (
+        partidos_historicos["Otros"].notna()
+    )
+]
+
+st.write(
+    f"Partidos válidos: {len(partidos_validos)}"
+)
+
 # ==================================================
 # JUGADORES Y EQUIPOS
 # ==================================================
