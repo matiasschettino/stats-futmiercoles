@@ -58,7 +58,7 @@ st.subheader("Control final")
 st.write(
     f"Partidos válidos: {len(partidos_validos)}"
 )
-``
+
 # ==================================================
 # JUGADORES Y EQUIPOS
 # ==================================================
