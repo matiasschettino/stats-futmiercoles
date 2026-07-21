@@ -1,162 +1,30 @@
 import streamlit as st
-import pandas as pd
 from supabase_utils import get_supabase
+import traceback
 
-# ==================================================
-# LOGIN
-# ==================================================
+st.title("Debug Supabase")
 
-st.title("🔒 Administración")
+try:
 
-usuario = st.text_input(
-    "Usuario"
-)
+    supabase = get_supabase()
 
-password = st.text_input(
-    "Contraseña",
-    type="password"
-)
+    st.success("✅ Cliente creado")
 
-if (
-    usuario != st.secrets["ADMIN_USER"]
-    or
-    password != st.secrets["ADMIN_PASSWORD"]
-):
-    st.warning("Acceso restringido")
-    st.stop()
-
-st.success("✅ Acceso autorizado")
-
-# ==================================================
-# CONEXIÓN SUPABASE
-# ==================================================
-
-supabase = get_supabase()
-
-# ==================================================
-# CARGAR DATOS
-# ==================================================
-
-equipos = (
-    supabase
-    .table("equipos")
-    .select("*")
-    .execute()
-)
-
-equipos_df = pd.DataFrame(equipos.data)
-
-jugadores = (
-    supabase
-    .table("jugadores")
-    .select("*")
-    .execute()
-)
-
-jugadores_df = pd.DataFrame(jugadores.data)
-
-# ==================================================
-# TABS
-# ==================================================
-
-tab1, tab2 = st.tabs(
-    [
-        "⚽ Equipos",
-        "👤 Jugadores"
-    ]
-)
-
-# ==================================================
-# EQUIPOS
-# ==================================================
-
-with tab1:
-
-    st.subheader("Equipos registrados")
-
-    if not equipos_df.empty:
-
-        st.dataframe(
-            equipos_df[["equipo"]],
-            use_container_width=True,
-            hide_index=True
-        )
-
-    st.divider()
-
-    st.subheader("➕ Nuevo equipo")
-
-    nuevo_equipo = st.text_input(
-        "Nombre del equipo"
+    respuesta = (
+        supabase
+        .table("equipos")
+        .select("*")
+        .execute()
     )
 
-    if st.button("Guardar Equipo"):
+    st.success("✅ Consulta ejecutada")
 
-        if nuevo_equipo.strip() == "":
-            st.error(
-                "Ingresá un nombre válido"
-            )
+    st.write(respuesta.data)
 
-        else:
+except Exception as e:
 
-            supabase.table(
-                "equipos"
-            ).insert(
-                {
-                    "equipo": nuevo_equipo.strip()
-                }
-            ).execute()
+    st.error(type(e).__name__)
 
-            st.success(
-                "Equipo guardado correctamente"
-            )
+    st.code(str(e))
 
-            st.rerun()
-
-# ==================================================
-# JUGADORES
-# ==================================================
-
-with tab2:
-
-    st.subheader("Jugadores registrados")
-
-    if not jugadores_df.empty:
-
-        st.dataframe(
-            jugadores_df[["jugador"]],
-            use_container_width=True,
-            hide_index=True
-        )
-
-    st.divider()
-
-    st.subheader("➕ Nuevo jugador")
-
-    nuevo_jugador = st.text_input(
-        "Nombre del jugador"
-    )
-
-    if st.button("Guardar Jugador"):
-
-        if nuevo_jugador.strip() == "":
-
-            st.error(
-                "Ingresá un nombre válido"
-            )
-
-        else:
-
-            supabase.table(
-                "jugadores"
-            ).insert(
-                {
-                    "jugador": nuevo_jugador.strip()
-                }
-            ).execute()
-
-            st.success(
-                "Jugador guardado correctamente"
-            )
-
-            st.rerun()
+    st.code(traceback.format_exc())
