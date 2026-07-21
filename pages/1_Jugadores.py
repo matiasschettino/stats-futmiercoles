@@ -170,9 +170,11 @@ with c1:
 
 with c2:
 
-    st.info(
-        f"🥊 Rival más frecuente: {info['rival_mas_frecuente']}"
-    )
+   
+st.info(
+    f"🥊 Rival más frecuente: {info['rival_mas_frecuente']} ({int(info['pj_vs_rival_mas_frecuente'])} PJ)"
+)
+
 
     st.info(
         f"📉 Peor compañero: {peor_companero['companero']} ({peor_companero['WinRate']:.1f}% WR)"
