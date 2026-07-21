@@ -17,9 +17,25 @@ participaciones_historicas = pd.read_csv(
 partidos_historicos = pd.read_csv(
     "partidos.csv"
 )
+
+# ==================================================
+# CONTROL DE CALIDAD
+# ==================================================
+
+st.subheader("🔎 Control de calidad")
+
+st.write(
+    f"Filas originales partidos.csv: {len(partidos_historicos)}"
+)
+
+# Copia para limpieza
+
 partidos_validos = partidos_historicos.copy()
 
-# datos obligatorios
+# --------------------------------------------------
+# Eliminar filas corruptas
+# --------------------------------------------------
+
 partidos_validos = partidos_validos[
     partidos_validos["Fecha"].notna()
 ]
@@ -32,18 +48,35 @@ partidos_validos = partidos_validos[
     partidos_validos["Otros"].notna()
 ]
 
-# descartamos partidos no jugados
+# --------------------------------------------------
+# Eliminar partidos no jugados
+# --------------------------------------------------
+
 partidos_validos = partidos_validos[
     ~partidos_validos["Local"]
     .astype(str)
     .str.contains(
-        "NO SE JUGO|PARTIDO FALLIDO",
+        "PARTIDO FALLIDO|NO SE JUGO",
         case=False,
         na=False
     )
 ]
 
-# eliminar duplicados por cronica
+# --------------------------------------------------
+# Eliminar crónicas duplicadas
+# --------------------------------------------------
+
+duplicados_cronica = (
+    partidos_validos["Crónica"]
+    .value_counts()
+)
+
+duplicados_cronica = (
+    duplicados_cronica[
+        duplicados_cronica > 1
+    ]
+)
+
 partidos_validos = (
     partidos_validos
     .sort_values("Crónica")
@@ -53,11 +86,25 @@ partidos_validos = (
     )
 )
 
-st.subheader("Control final")
+# ==================================================
+# KPIs DE CONTROL
+# ==================================================
 
 st.write(
-    f"Partidos válidos: {len(partidos_validos)}"
+    f"✅ Partidos válidos luego de limpieza: {len(partidos_validos)}"
 )
+
+st.write(
+    f"⚠️ Crónicas duplicadas encontradas: {len(duplicados_cronica)}"
+)
+
+st.write(
+    f"📋 Participaciones encontradas: {len(participaciones_historicas)}"
+)
+
+st.divider()
+
+
 
 # ==================================================
 # JUGADORES Y EQUIPOS
