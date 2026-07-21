@@ -2,39 +2,55 @@ import streamlit as st
 import pandas as pd
 
 st.set_page_config(
-    page_title="Futbol Stats",
+    page_title="Stats FutMiércoles",
     page_icon="⚽",
     layout="wide"
 )
 
-jugadores = pd.read_csv(
-    "jugadores_master.csv"
+jugadores = pd.read_csv("jugadores_master.csv")
+equipos = pd.read_csv("equipos_master.csv")
+
+st.title("⚽ Stats FutMiércoles")
+
+st.markdown(
+    "Estadísticas históricas de los partidos desde 2007."
 )
 
-equipos = pd.read_csv(
-    "equipos_master.csv"
-)
+c1, c2, c3 = st.columns(3)
 
-st.title("⚽ Fútbol Histórico")
-
-col1, col2 = st.columns(2)
-
-col1.metric(
+c1.metric(
     "Jugadores",
     len(jugadores)
 )
 
-col2.metric(
+c2.metric(
     "Equipos",
     len(equipos)
 )
 
-st.subheader(
-    "🏆 Top 20 jugadores con más partidos"
+c3.metric(
+    "Partidos Jugados",
+    int(jugadores["PJ"].max())
 )
+
+st.divider()
+
+st.subheader("🏆 Top 10 jugadores con más partidos")
 
 st.dataframe(
     jugadores
     .sort_values("PJ", ascending=False)
-    .head(20)
+    [["jugador", "PJ", "WinRate"]]
+    .head(10),
+    use_container_width=True
+)
+
+st.subheader("⚽ Equipos más ganadores")
+
+st.dataframe(
+    equipos
+    .sort_values("G", ascending=False)
+    [["equipo", "G", "PJ", "WinRate"]]
+    .head(10),
+    use_container_width=True
 )
