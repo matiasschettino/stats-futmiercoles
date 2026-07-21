@@ -8,23 +8,46 @@ import pandas as pd
 partidos = pd.read_csv("partidos.csv")
 
 # =====================================
-# PREPARACIÓN
+# LIMPIEZA
 # =====================================
 
 partidos["Fecha"] = pd.to_datetime(
-    partidos["Fecha"]
+    partidos["Fecha"],
+    errors="coerce"
 )
+
+partidos["goles_local"] = pd.to_numeric(
+    partidos["goles_local"],
+    errors="coerce"
+)
+
+partidos["goles_visitante"] = pd.to_numeric(
+    partidos["goles_visitante"],
+    errors="coerce"
+)
+
+partidos = partidos.dropna(
+    subset=[
+        "Fecha",
+        "Local",
+        "Otros",
+        "goles_local",
+        "goles_visitante"
+    ]
+)
+
+# =====================================
+# CAMPOS CALCULADOS
+# =====================================
 
 partidos["goles_totales"] = (
     partidos["goles_local"]
-    +
-    partidos["goles_visitante"]
+    + partidos["goles_visitante"]
 )
 
 partidos["diferencia_goles"] = (
     partidos["goles_local"]
-    -
-    partidos["goles_visitante"]
+    - partidos["goles_visitante"]
 ).abs()
 
 # =====================================
