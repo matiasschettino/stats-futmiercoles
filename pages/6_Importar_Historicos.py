@@ -28,89 +28,16 @@ st.write(
     f"Filas originales partidos.csv: {len(partidos_historicos)}"
 )
 
-# Copia para limpieza
-
-partidos_validos = partidos_historicos.copy()
-
-# --------------------------------------------------
-# Eliminar filas corruptas
-# --------------------------------------------------
-
-partidos_validos = partidos_validos[
-    partidos_validos["Fecha"].notna()
-]
-
-partidos_validos = partidos_validos[
-    partidos_validos["Local"].notna()
-]
-
-partidos_validos = partidos_validos[
-    partidos_validos["Otros"].notna()
-]
-
-# --------------------------------------------------
-# Eliminar partidos no jugados
-# --------------------------------------------------
-
-partidos_validos = partidos_validos[
-    ~partidos_validos["Local"]
-    .astype(str)
-    .str.contains(
-        "PARTIDO FALLIDO|NO SE JUGO",
-        case=False,
-        na=False
-    )
-]
-
-# --------------------------------------------------
-# Eliminar crónicas duplicadas
-# --------------------------------------------------
-
-duplicados_cronica = (
-    partidos_validos["Crónica"]
-    .value_counts()
-)
-
-duplicados_cronica = (
-    duplicados_cronica[
-        duplicados_cronica > 1
-    ]
-)
-
-partidos_validos = (
-    partidos_validos
-    .sort_values("Crónica")
-    .drop_duplicates(
-        subset=["Crónica"],
-        keep="first"
-    )
-)
-
-# ==================================================
-# KPIs DE CONTROL
-# ==================================================
-
-st.write(
-    f"✅ Partidos válidos luego de limpieza: {len(partidos_validos)}"
-)
-
-st.write(
-    f"⚠️ Crónicas duplicadas encontradas: {len(duplicados_cronica)}"
-)
-
-st.write(
-    f"📋 Participaciones encontradas: {len(participaciones_historicas)}"
-)
-
-st.divider()
-
 partidos_validos = partidos_historicos.copy()
 
 st.write(
     f"Inicial: {len(partidos_validos)}"
 )
 
-# Fecha
+# ------------------------------------
+# Fecha válida
+# ------------------------------------
+
 partidos_validos = partidos_validos[
     partidos_validos["Fecha"].notna()
 ]
@@ -119,7 +46,10 @@ st.write(
     f"Después de Fecha: {len(partidos_validos)}"
 )
 
-# Local
+# ------------------------------------
+# Local válido
+# ------------------------------------
+
 partidos_validos = partidos_validos[
     partidos_validos["Local"].notna()
 ]
@@ -128,7 +58,10 @@ st.write(
     f"Después de Local: {len(partidos_validos)}"
 )
 
-# Visitante
+# ------------------------------------
+# Visitante válido
+# ------------------------------------
+
 partidos_validos = partidos_validos[
     partidos_validos["Otros"].notna()
 ]
@@ -137,7 +70,10 @@ st.write(
     f"Después de Visitante: {len(partidos_validos)}"
 )
 
+# ------------------------------------
 # Partidos no jugados
+# ------------------------------------
+
 partidos_validos = partidos_validos[
     ~partidos_validos["Local"]
     .astype(str)
@@ -152,12 +88,61 @@ st.write(
     f"Después de No Jugados: {len(partidos_validos)}"
 )
 
-# Duplicados
+# ==================================================
+# DUPLICADOS REALES
+# ==================================================
+
+duplicados = partidos_validos[
+    partidos_validos.duplicated(
+        subset=[
+            "Fecha",
+            "Local",
+            "Otros",
+            "goles_local",
+            "goles_visitante"
+        ],
+        keep=False
+    )
+]
+
+st.subheader("🔁 Duplicados detectados")
+
+st.write(
+    f"Cantidad de registros duplicados: {len(duplicados)}"
+)
+
+if len(duplicados) > 0:
+
+    st.dataframe(
+        duplicados[
+            [
+                "Fecha",
+                "Crónica",
+                "Local",
+                "Otros",
+                "goles_local",
+                "goles_visitante"
+            ]
+        ],
+        use_container_width=True
+    )
+
+# ------------------------------------
+# Eliminar duplicados
+# Mantener el más viejo
+# ------------------------------------
+
 partidos_validos = (
     partidos_validos
-    .sort_values("Crónica")
+    .sort_values("Fecha")
     .drop_duplicates(
-        subset=["Crónica"],
+        subset=[
+            "Fecha",
+            "Local",
+            "Otros",
+            "goles_local",
+            "goles_visitante"
+        ],
         keep="first"
     )
 )
@@ -166,29 +151,55 @@ st.write(
     f"Después de Duplicados: {len(partidos_validos)}"
 )
 
-st.subheader("Partidos con visitante vacío")
+# ==================================================
+# PARTIDOS DESCARTADOS
+# ==================================================
 
-st.write(
-    len(
-        partidos_historicos[
-            partidos_historicos["Otros"].isna()
-        ]
+st.subheader("🗑️ Partidos descartados")
+
+descartados = partidos_historicos[
+    (
+        partidos_historicos["Fecha"].isna()
     )
+    |
+    (
+        partidos_historicos["Local"].isna()
+    )
+    |
+    (
+        partidos_historicos["Otros"].isna()
+    )
+    |
+    (
+        partidos_historicos["Local"]
+        .astype(str)
+        .str.contains(
+            "PARTIDO FALLIDO|NO SE JUGO",
+            case=False,
+            na=False
+        )
+    )
+]
+
+if len(descartados) > 0:
+
+    st.dataframe(
+        descartados,
+        use_container_width=True
+    )
+
+# ==================================================
+# RESUMEN FINAL
+# ==================================================
+
+st.divider()
+
+st.success(
+    f"✅ Partidos válidos luego de limpieza: {len(partidos_validos)}"
 )
 
-st.dataframe(
-    partidos_historicos[
-        partidos_historicos["Otros"].isna()
-    ][
-        [
-            "Fecha",
-            "Local",
-            "Otros",
-            "goles_local",
-            "goles_visitante",
-            "Crónica"
-        ]
-    ]
+st.write(
+    f"📋 Participaciones encontradas: {len(participaciones_historicas)}"
 )
 # ==================================================
 # JUGADORES Y EQUIPOS
