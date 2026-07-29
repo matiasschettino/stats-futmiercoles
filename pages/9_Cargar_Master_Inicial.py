@@ -98,3 +98,182 @@ if st.button("📤 Cargar Master Inicial"):
         # JUGADORES
         # ------------------------------------------
 
+        if "id" in jugadores_master.columns:
+
+            jugadores_master = (
+                jugadores_master
+                .drop(columns=["id"])
+            )
+
+        jugadores_master = (
+            jugadores_master
+            .where(
+                pd.notnull(jugadores_master),
+                None
+            )
+        )
+
+        registros_jugadores = (
+            jugadores_master
+            .to_dict("records")
+        )
+
+        # limpiar tabla
+        existentes = (
+            supabase
+            .table("jugadores_master")
+            .select("id")
+            .execute()
+        )
+
+        if existentes.data:
+
+            ids = [
+                x["id"]
+                for x in existentes.data
+            ]
+
+            (
+                supabase
+                .table("jugadores_master")
+                .delete()
+                .in_("id", ids)
+                .execute()
+            )
+
+        if registros_jugadores:
+
+            (
+                supabase
+                .table("jugadores_master")
+                .insert(
+                    registros_jugadores
+                )
+                .execute()
+            )
+
+        # ------------------------------------------
+        # EQUIPOS
+        # ------------------------------------------
+
+        if "id" in equipos_master.columns:
+
+            equipos_master = (
+                equipos_master
+                .drop(columns=["id"])
+            )
+
+        equipos_master = (
+            equipos_master
+            .where(
+                pd.notnull(equipos_master),
+                None
+            )
+        )
+
+        registros_equipos = (
+            equipos_master
+            .to_dict("records")
+        )
+
+        existentes = (
+            supabase
+            .table("equipos_master")
+            .select("id")
+            .execute()
+        )
+
+        if existentes.data:
+
+            ids = [
+                x["id"]
+                for x in existentes.data
+            ]
+
+            (
+                supabase
+                .table("equipos_master")
+                .delete()
+                .in_("id", ids)
+                .execute()
+            )
+
+        if registros_equipos:
+
+            (
+                supabase
+                .table("equipos_master")
+                .insert(
+                    registros_equipos
+                )
+                .execute()
+            )
+
+        # ------------------------------------------
+        # PAREJAS
+        # ------------------------------------------
+
+        if "id" in estadisticas_parejas.columns:
+
+            estadisticas_parejas = (
+                estadisticas_parejas
+                .drop(columns=["id"])
+            )
+
+        estadisticas_parejas = (
+            estadisticas_parejas
+            .where(
+                pd.notnull(
+                    estadisticas_parejas
+                ),
+                None
+            )
+        )
+
+        registros_parejas = (
+            estadisticas_parejas
+            .to_dict("records")
+        )
+
+        existentes = (
+            supabase
+            .table("estadisticas_parejas")
+            .select("id")
+            .execute()
+        )
+
+        if existentes.data:
+
+            ids = [
+                x["id"]
+                for x in existentes.data
+            ]
+
+            (
+                supabase
+                .table("estadisticas_parejas")
+                .delete()
+                .in_("id", ids)
+                .execute()
+            )
+
+        if registros_parejas:
+
+            (
+                supabase
+                .table("estadisticas_parejas")
+                .insert(
+                    registros_parejas
+                )
+                .execute()
+            )
+
+        st.success(
+            "✅ Master inicial cargado correctamente"
+        )
+
+    except Exception as e:
+
+        st.error(
+            f"Error: {e}"
+        )
