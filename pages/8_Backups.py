@@ -46,8 +46,8 @@ def vaciar_tabla(nombre_tabla):
     if filas.data:
 
         ids = [
-            fila["id"]
-            for fila in filas.data
+            x["id"]
+            for x in filas.data
         ]
 
         (
@@ -59,18 +59,37 @@ def vaciar_tabla(nombre_tabla):
         )
 
 
-def limpiar_ids(registros):
+def limpiar_registros(registros):
 
     registros_limpios = []
 
     for registro in registros:
 
-        nuevo = registro.copy()
+        nuevo = {}
 
-        if "id" in nuevo:
-            del nuevo["id"]
+        for clave, valor in registro.items():
 
-        registros_limpios.append(nuevo)
+            if clave == "id":
+                continue
+
+            try:
+
+                if valor is None:
+                    nuevo[clave] = None
+
+                elif str(valor).lower() == "nan":
+                    nuevo[clave] = None
+
+                else:
+                    nuevo[clave] = valor
+
+            except Exception:
+
+                nuevo[clave] = None
+
+        registros_limpios.append(
+            nuevo
+        )
 
     return registros_limpios
 
@@ -80,13 +99,17 @@ def limpiar_ids(registros):
 
 st.subheader("📦 Crear Backup")
 
+st.info(
+    "Copia las tablas master a las tablas backup."
+)
+
 if st.button("📦 Crear Backup"):
 
     try:
 
-        # -----------------------------
+        # ------------------------------------------
         # JUGADORES
-        # -----------------------------
+        # ------------------------------------------
 
         jugadores = (
             supabase
@@ -99,7 +122,7 @@ if st.button("📦 Crear Backup"):
             "jugadores_master_backup"
         )
 
-        registros = limpiar_ids(
+        registros = limpiar_registros(
             jugadores.data
         )
 
@@ -114,9 +137,9 @@ if st.button("📦 Crear Backup"):
                 .execute()
             )
 
-        # -----------------------------
+        # ------------------------------------------
         # EQUIPOS
-        # -----------------------------
+        # ------------------------------------------
 
         equipos = (
             supabase
@@ -129,7 +152,7 @@ if st.button("📦 Crear Backup"):
             "equipos_master_backup"
         )
 
-        registros = limpiar_ids(
+        registros = limpiar_registros(
             equipos.data
         )
 
@@ -144,9 +167,9 @@ if st.button("📦 Crear Backup"):
                 .execute()
             )
 
-        # -----------------------------
+        # ------------------------------------------
         # PAREJAS
-        # -----------------------------
+        # ------------------------------------------
 
         parejas = (
             supabase
@@ -159,7 +182,7 @@ if st.button("📦 Crear Backup"):
             "estadisticas_parejas_backup"
         )
 
-        registros = limpiar_ids(
+        registros = limpiar_registros(
             parejas.data
         )
 
@@ -180,9 +203,7 @@ if st.button("📦 Crear Backup"):
 
     except Exception as e:
 
-        st.error(
-            f"Error creando backup: {e}"
-        )
+        st.exception(e)
 
 # ==================================================
 # RESTAURAR BACKUP
@@ -193,7 +214,7 @@ st.divider()
 st.subheader("↩️ Restaurar Backup")
 
 st.warning(
-    "Esta acción reemplazará las tablas master actuales por el backup."
+    "Restaurará los datos de las tablas backup sobre las tablas master."
 )
 
 if st.button(
@@ -203,9 +224,9 @@ if st.button(
 
     try:
 
-        # -----------------------------
+        # ------------------------------------------
         # JUGADORES
-        # -----------------------------
+        # ------------------------------------------
 
         jugadores_backup = (
             supabase
@@ -220,7 +241,7 @@ if st.button(
             "jugadores_master"
         )
 
-        registros = limpiar_ids(
+        registros = limpiar_registros(
             jugadores_backup.data
         )
 
@@ -235,9 +256,9 @@ if st.button(
                 .execute()
             )
 
-        # -----------------------------
+        # ------------------------------------------
         # EQUIPOS
-        # -----------------------------
+        # ------------------------------------------
 
         equipos_backup = (
             supabase
@@ -252,7 +273,7 @@ if st.button(
             "equipos_master"
         )
 
-        registros = limpiar_ids(
+        registros = limpiar_registros(
             equipos_backup.data
         )
 
@@ -267,9 +288,9 @@ if st.button(
                 .execute()
             )
 
-        # -----------------------------
+        # ------------------------------------------
         # PAREJAS
-        # -----------------------------
+        # ------------------------------------------
 
         parejas_backup = (
             supabase
@@ -284,7 +305,7 @@ if st.button(
             "estadisticas_parejas"
         )
 
-        registros = limpiar_ids(
+        registros = limpiar_registros(
             parejas_backup.data
         )
 
@@ -305,6 +326,4 @@ if st.button(
 
     except Exception as e:
 
-        st.error(
-            f"Error restaurando backup: {e}"
-        )
+        st.exception(e)
