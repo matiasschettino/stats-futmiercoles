@@ -47,14 +47,18 @@ estadisticas_parejas = pd.read_csv(
     "estadisticas_parejas.csv"
 )
 
-st.subheader("📊 Resumen")
+# ==================================================
+# VALIDACIÓN
+# ==================================================
+
+st.subheader("📊 Resumen de archivos")
 
 st.write(
-    f"Jugadores master: {len(jugadores_master)}"
+    f"Jugadores Master: {len(jugadores_master)}"
 )
 
 st.write(
-    f"Equipos master: {len(equipos_master)}"
+    f"Equipos Master: {len(equipos_master)}"
 )
 
 st.write(
@@ -63,8 +67,27 @@ st.write(
 
 st.divider()
 
+st.subheader("🔎 Columnas detectadas")
+
+st.write(
+    "Jugadores:",
+    jugadores_master.columns.tolist()
+)
+
+st.write(
+    "Equipos:",
+    equipos_master.columns.tolist()
+)
+
+st.write(
+    "Parejas:",
+    estadisticas_parejas.columns.tolist()
+)
+
+st.divider()
+
 # ==================================================
-# CARGAR
+# CARGA
 # ==================================================
 
 if st.button("📤 Cargar Master Inicial"):
@@ -72,99 +95,6 @@ if st.button("📤 Cargar Master Inicial"):
     try:
 
         # ------------------------------------------
-        # JUGADORES MASTER
+        # JUGADORES
         # ------------------------------------------
 
-        jugadores_master = (
-            jugadores_master
-            .where(
-                pd.notnull(jugadores_master),
-                None
-            )
-        )
-
-        registros_jugadores = (
-            jugadores_master
-            .to_dict("records")
-        )
-
-        if len(registros_jugadores) > 0:
-
-            (
-                supabase
-                .table("jugadores_master")
-                .insert(
-                    registros_jugadores
-                )
-                .execute()
-            )
-
-        # ------------------------------------------
-        # EQUIPOS MASTER
-        # ------------------------------------------
-
-        equipos_master = (
-            equipos_master
-            .where(
-                pd.notnull(equipos_master),
-                None
-            )
-        )
-
-        registros_equipos = (
-            equipos_master
-            .to_dict("records")
-        )
-
-        if len(registros_equipos) > 0:
-
-            (
-                supabase
-                .table("equipos_master")
-                .insert(
-                    registros_equipos
-                )
-                .execute()
-            )
-
-        # ------------------------------------------
-        # PAREJAS
-        # ------------------------------------------
-
-        estadisticas_parejas = (
-            estadisticas_parejas
-            .where(
-                pd.notnull(
-                    estadisticas_parejas
-                ),
-                None
-            )
-        )
-
-        registros_parejas = (
-            estadisticas_parejas
-            .to_dict("records")
-        )
-
-        if len(registros_parejas) > 0:
-
-            (
-                supabase
-                .table(
-                    "estadisticas_parejas"
-                )
-                .insert(
-                    registros_parejas
-                )
-                .execute()
-            )
-
-        st.success(
-            "✅ Master inicial cargado correctamente"
-        )
-
-    except Exception as e:
-
-        st.error(
-            f"Error: {e}"
-        )
