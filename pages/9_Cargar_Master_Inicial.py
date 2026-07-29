@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from supabase_utils import get_supabase
 
 # ==================================================
@@ -48,10 +49,10 @@ estadisticas_parejas = pd.read_csv(
 )
 
 # ==================================================
-# VALIDACIÓN
+# INFO
 # ==================================================
 
-st.subheader("📊 Resumen de archivos")
+st.subheader("📊 Resumen")
 
 st.write(
     f"Jugadores Master: {len(jugadores_master)}"
@@ -66,6 +67,10 @@ st.write(
 )
 
 st.divider()
+
+# ==================================================
+# DEBUG
+# ==================================================
 
 st.subheader("🔎 Columnas detectadas")
 
@@ -84,19 +89,17 @@ st.write(
     estadisticas_parejas.columns.tolist()
 )
 
-st.divider()
-
 # ==================================================
-# CARGA
+# BOTÓN CARGA
 # ==================================================
 
 if st.button("📤 Cargar Master Inicial"):
 
     try:
 
-        # ------------------------------------------
+        # ==================================================
         # JUGADORES
-        # ------------------------------------------
+        # ==================================================
 
         if "id" in jugadores_master.columns:
 
@@ -107,8 +110,8 @@ if st.button("📤 Cargar Master Inicial"):
 
         jugadores_master = (
             jugadores_master
-            .where(
-                pd.notnull(jugadores_master),
+            .replace(
+                [np.nan, np.inf, -np.inf],
                 None
             )
         )
@@ -117,29 +120,6 @@ if st.button("📤 Cargar Master Inicial"):
             jugadores_master
             .to_dict("records")
         )
-
-        # limpiar tabla
-        existentes = (
-            supabase
-            .table("jugadores_master")
-            .select("id")
-            .execute()
-        )
-
-        if existentes.data:
-
-            ids = [
-                x["id"]
-                for x in existentes.data
-            ]
-
-            (
-                supabase
-                .table("jugadores_master")
-                .delete()
-                .in_("id", ids)
-                .execute()
-            )
 
         if registros_jugadores:
 
@@ -152,9 +132,9 @@ if st.button("📤 Cargar Master Inicial"):
                 .execute()
             )
 
-        # ------------------------------------------
+        # ==================================================
         # EQUIPOS
-        # ------------------------------------------
+        # ==================================================
 
         if "id" in equipos_master.columns:
 
@@ -165,8 +145,8 @@ if st.button("📤 Cargar Master Inicial"):
 
         equipos_master = (
             equipos_master
-            .where(
-                pd.notnull(equipos_master),
+            .replace(
+                [np.nan, np.inf, -np.inf],
                 None
             )
         )
@@ -175,28 +155,6 @@ if st.button("📤 Cargar Master Inicial"):
             equipos_master
             .to_dict("records")
         )
-
-        existentes = (
-            supabase
-            .table("equipos_master")
-            .select("id")
-            .execute()
-        )
-
-        if existentes.data:
-
-            ids = [
-                x["id"]
-                for x in existentes.data
-            ]
-
-            (
-                supabase
-                .table("equipos_master")
-                .delete()
-                .in_("id", ids)
-                .execute()
-            )
 
         if registros_equipos:
 
@@ -209,9 +167,9 @@ if st.button("📤 Cargar Master Inicial"):
                 .execute()
             )
 
-        # ------------------------------------------
+        # ==================================================
         # PAREJAS
-        # ------------------------------------------
+        # ==================================================
 
         if "id" in estadisticas_parejas.columns:
 
@@ -222,10 +180,8 @@ if st.button("📤 Cargar Master Inicial"):
 
         estadisticas_parejas = (
             estadisticas_parejas
-            .where(
-                pd.notnull(
-                    estadisticas_parejas
-                ),
+            .replace(
+                [np.nan, np.inf, -np.inf],
                 None
             )
         )
@@ -234,28 +190,6 @@ if st.button("📤 Cargar Master Inicial"):
             estadisticas_parejas
             .to_dict("records")
         )
-
-        existentes = (
-            supabase
-            .table("estadisticas_parejas")
-            .select("id")
-            .execute()
-        )
-
-        if existentes.data:
-
-            ids = [
-                x["id"]
-                for x in existentes.data
-            ]
-
-            (
-                supabase
-                .table("estadisticas_parejas")
-                .delete()
-                .in_("id", ids)
-                .execute()
-            )
 
         if registros_parejas:
 
