@@ -31,234 +31,79 @@ st.success("✅ Acceso autorizado")
 supabase = get_supabase()
 
 # ==================================================
-# BACKUP
+# FUNCIONES
+# ==================================================
+
+def vaciar_tabla(nombre_tabla):
+
+    filas = (
+        supabase
+        .table(nombre_tabla)
+        .select("id")
+        .execute()
+    )
+
+    if filas.data:
+
+        ids = [
+            fila["id"]
+            for fila in filas.data
+        ]
+
+        (
+            supabase
+            .table(nombre_tabla)
+            .delete()
+            .in_("id", ids)
+            .execute()
+        )
+
+
+def limpiar_ids(registros):
+
+    registros_limpios = []
+
+    for registro in registros:
+
+        nuevo = registro.copy()
+
+        if "id" in nuevo:
+            del nuevo["id"]
+
+        registros_limpios.append(nuevo)
+
+    return registros_limpios
+
+# ==================================================
+# CREAR BACKUP
 # ==================================================
 
 st.subheader("📦 Crear Backup")
-
-st.info(
-    "Genera una copia de seguridad de las tablas master actuales."
-)
 
 if st.button("📦 Crear Backup"):
 
     try:
 
-        # ------------------------------------------
-        # JUGADORES MASTER
-        # ------------------------------------------
-
-        jugadores_master = (
-            supabase
-            .table("jugadores_master")
-            .select("*")
-            .execute()
-        )
-
-        (
-            supabase
-            .table("jugadores_master_backup")
-            .delete()
-            .neq("id", "")
-            .execute()
-        )
-
-        if len(jugadores_master.data) > 0:
-
-            (
-                supabase
-                .table("jugadores_master_backup")
-                .insert(
-                    jugadores_master.data
-                )
-                .execute()
-            )
-
-        # ------------------------------------------
-        # EQUIPOS MASTER
-        # ------------------------------------------
-
-        equipos_master = (
-            supabase
-            .table("equipos_master")
-            .select("*")
-            .execute()
-        )
-
-        (
-            supabase
-            .table("equipos_master_backup")
-            .delete()
-            .neq("id", "")
-            .execute()
-        )
-
-        if len(equipos_master.data) > 0:
-
-            (
-                supabase
-                .table("equipos_master_backup")
-                .insert(
-                    equipos_master.data
-                )
-                .execute()
-            )
-
-        # ------------------------------------------
-        # PAREJAS MASTER
-        # ------------------------------------------
-
-        parejas_master = (
-            supabase
-            .table("estadisticas_parejas")
-            .select("*")
-            .execute()
-        )
-
-        (
-            supabase
-            .table("estadisticas_parejas_backup")
-            .delete()
-            .neq("id", "")
-            .execute()
-        )
-
-        if len(parejas_master.data) > 0:
-
-            (
-                supabase
-                .table("estadisticas_parejas_backup")
-                .insert(
-                    parejas_master.data
-                )
-                .execute()
-            )
-
-        st.success(
-            "✅ Backup creado correctamente"
-        )
-
-    except Exception as e:
-
-        st.error(
-            f"Error creando backup: {e}"
-        )
-
-# ==================================================
-# RESTAURAR BACKUP
-# ==================================================
-
-st.divider()
-
-st.subheader("↩️ Restaurar Backup")
-
-st.warning(
-    "Esta acción reemplazará las tablas master actuales por la última copia de seguridad."
-)
-
-if st.button(
-    "↩️ Restaurar Backup",
-    type="primary"
-):
-
-    try:
-
-        # ------------------------------------------
+        # -----------------------------
         # JUGADORES
-        # ------------------------------------------
+        # -----------------------------
 
-        jugadores_backup = (
-            supabase
-            .table("jugadores_master_backup")
-            .select("*")
-            .execute()
-        )
-
-        (
+        jugadores = (
             supabase
             .table("jugadores_master")
-            .delete()
-            .neq("id", "")
-            .execute()
-        )
-
-        if len(jugadores_backup.data) > 0:
-
-            (
-                supabase
-                .table("jugadores_master")
-                .insert(
-                    jugadores_backup.data
-                )
-                .execute()
-            )
-
-        # ------------------------------------------
-        # EQUIPOS
-        # ------------------------------------------
-
-        equipos_backup = (
-            supabase
-            .table("equipos_master_backup")
             .select("*")
             .execute()
         )
 
-        (
-            supabase
-            .table("equipos_master")
-            .delete()
-            .neq("id", "")
-            .execute()
+        vaciar_tabla(
+            "jugadores_master_backup"
         )
 
-        if len(equipos_backup.data) > 0:
+        registros = limpiar_ids(
+            jugadores.data
+        )
+
+        if registros:
 
             (
-                supabase
-                .table("equipos_master")
-                .insert(
-                    equipos_backup.data
-                )
-                .execute()
-            )
-
-        # ------------------------------------------
-        # PAREJAS
-        # ------------------------------------------
-
-        parejas_backup = (
-            supabase
-            .table("estadisticas_parejas_backup")
-            .select("*")
-            .execute()
-        )
-
-        (
-            supabase
-            .table("estadisticas_parejas")
-            .delete()
-            .neq("id", "")
-            .execute()
-        )
-
-        if len(parejas_backup.data) > 0:
-
-            (
-                supabase
-                .table("estadisticas_parejas")
-                .insert(
-                    parejas_backup.data
-                )
-                .execute()
-            )
-
-        st.success(
-            "✅ Backup restaurado correctamente"
-        )
-
-    except Exception as e:
-
-        st.error(
-            f"Error restaurando backup: {e}"
-        )
+     
