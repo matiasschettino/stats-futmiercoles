@@ -33,6 +33,52 @@ st.success("✅ Acceso autorizado")
 supabase = get_supabase()
 
 # ==================================================
+# FUNCIÓN LIMPIEZA
+# ==================================================
+
+def limpiar_dataframe(df):
+
+    if "id" in df.columns:
+        df = df.drop(columns=["id"])
+
+    df = df.replace(
+        [np.nan, np.inf, -np.inf],
+        None
+    )
+
+    for col in df.columns:
+
+        try:
+
+            serie = pd.to_numeric(
+                df[col],
+                errors="ignore"
+            )
+
+            if str(serie.dtype).startswith("float"):
+
+                valores = serie.dropna()
+
+                if len(valores) > 0:
+
+                    if (
+                        valores
+                        .apply(
+                            lambda x: float(x).is_integer()
+                        )
+                        .all()
+                    ):
+
+                        df[col] = serie.astype("Int64")
+
+        except Exception:
+            pass
+
+    df = df.astype(object)
+
+    return df
+
+# ==================================================
 # LEER CSV
 # ==================================================
 
@@ -68,10 +114,6 @@ st.write(
 
 st.divider()
 
-# ==================================================
-# DEBUG
-# ==================================================
-
 st.subheader("🔎 Columnas detectadas")
 
 st.write(
@@ -90,34 +132,23 @@ st.write(
 )
 
 # ==================================================
-# BOTÓN CARGA
+# CARGA
 # ==================================================
 
 if st.button("📤 Cargar Master Inicial"):
 
     try:
 
-        # ==================================================
+        # ------------------------------------------
         # JUGADORES
-        # ==================================================
+        # ------------------------------------------
 
-        if "id" in jugadores_master.columns:
-
-            jugadores_master = (
-                jugadores_master
-                .drop(columns=["id"])
-            )
-
-        jugadores_master = (
-            jugadores_master
-            .replace(
-                [np.nan, np.inf, -np.inf],
-                None
-            )
+        jugadores_df = limpiar_dataframe(
+            jugadores_master.copy()
         )
 
         registros_jugadores = (
-            jugadores_master
+            jugadores_df
             .to_dict("records")
         )
 
@@ -132,27 +163,16 @@ if st.button("📤 Cargar Master Inicial"):
                 .execute()
             )
 
-        # ==================================================
+        # ------------------------------------------
         # EQUIPOS
-        # ==================================================
+        # ------------------------------------------
 
-        if "id" in equipos_master.columns:
-
-            equipos_master = (
-                equipos_master
-                .drop(columns=["id"])
-            )
-
-        equipos_master = (
-            equipos_master
-            .replace(
-                [np.nan, np.inf, -np.inf],
-                None
-            )
+        equipos_df = limpiar_dataframe(
+            equipos_master.copy()
         )
 
         registros_equipos = (
-            equipos_master
+            equipos_df
             .to_dict("records")
         )
 
@@ -167,27 +187,16 @@ if st.button("📤 Cargar Master Inicial"):
                 .execute()
             )
 
-        # ==================================================
+        # ------------------------------------------
         # PAREJAS
-        # ==================================================
+        # ------------------------------------------
 
-        if "id" in estadisticas_parejas.columns:
-
-            estadisticas_parejas = (
-                estadisticas_parejas
-                .drop(columns=["id"])
-            )
-
-        estadisticas_parejas = (
-            estadisticas_parejas
-            .replace(
-                [np.nan, np.inf, -np.inf],
-                None
-            )
+        parejas_df = limpiar_dataframe(
+            estadisticas_parejas.copy()
         )
 
         registros_parejas = (
-            estadisticas_parejas
+            parejas_df
             .to_dict("records")
         )
 
