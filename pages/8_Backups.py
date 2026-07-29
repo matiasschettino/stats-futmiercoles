@@ -46,8 +46,8 @@ def vaciar_tabla(nombre_tabla):
     if filas.data:
 
         ids = [
-            x["id"]
-            for x in filas.data
+            fila["id"]
+            for fila in filas.data
         ]
 
         (
@@ -65,31 +65,12 @@ def limpiar_registros(registros):
 
     for registro in registros:
 
-        nuevo = {}
+        nuevo = registro.copy()
 
-        for clave, valor in registro.items():
+        if "id" in nuevo:
+            del nuevo["id"]
 
-            if clave == "id":
-                continue
-
-            try:
-
-                if valor is None:
-                    nuevo[clave] = None
-
-                elif str(valor).lower() == "nan":
-                    nuevo[clave] = None
-
-                else:
-                    nuevo[clave] = valor
-
-            except Exception:
-
-                nuevo[clave] = None
-
-        registros_limpios.append(
-            nuevo
-        )
+        registros_limpios.append(nuevo)
 
     return registros_limpios
 
@@ -100,7 +81,15 @@ def limpiar_registros(registros):
 st.subheader("📦 Crear Backup")
 
 st.info(
-    "Copia las tablas master a las tablas backup."
+    """
+    Genera una copia de seguridad de:
+
+    • jugadores_master
+    • equipos_master
+    • estadisticas_parejas
+
+    Las copias se almacenan en las tablas *_backup.
+    """
 )
 
 if st.button("📦 Crear Backup"):
@@ -130,9 +119,7 @@ if st.button("📦 Crear Backup"):
 
             (
                 supabase
-                .table(
-                    "jugadores_master_backup"
-                )
+                .table("jugadores_master_backup")
                 .insert(registros)
                 .execute()
             )
@@ -160,9 +147,7 @@ if st.button("📦 Crear Backup"):
 
             (
                 supabase
-                .table(
-                    "equipos_master_backup"
-                )
+                .table("equipos_master_backup")
                 .insert(registros)
                 .execute()
             )
@@ -190,9 +175,7 @@ if st.button("📦 Crear Backup"):
 
             (
                 supabase
-                .table(
-                    "estadisticas_parejas_backup"
-                )
+                .table("estadisticas_parejas_backup")
                 .insert(registros)
                 .execute()
             )
@@ -203,127 +186,6 @@ if st.button("📦 Crear Backup"):
 
     except Exception as e:
 
-        st.exception(e)
-
-# ==================================================
-# RESTAURAR BACKUP
-# ==================================================
-
-st.divider()
-
-st.subheader("↩️ Restaurar Backup")
-
-st.warning(
-    "Restaurará los datos de las tablas backup sobre las tablas master."
-)
-
-if st.button(
-    "↩️ Restaurar Backup",
-    type="primary"
-):
-
-    try:
-
-        # ------------------------------------------
-        # JUGADORES
-        # ------------------------------------------
-
-        jugadores_backup = (
-            supabase
-            .table(
-                "jugadores_master_backup"
-            )
-            .select("*")
-            .execute()
+        st.error(
+            f"Error creando backup: {e}"
         )
-
-        vaciar_tabla(
-            "jugadores_master"
-        )
-
-        registros = limpiar_registros(
-            jugadores_backup.data
-        )
-
-        if registros:
-
-            (
-                supabase
-                .table(
-                    "jugadores_master"
-                )
-                .insert(registros)
-                .execute()
-            )
-
-        # ------------------------------------------
-        # EQUIPOS
-        # ------------------------------------------
-
-        equipos_backup = (
-            supabase
-            .table(
-                "equipos_master_backup"
-            )
-            .select("*")
-            .execute()
-        )
-
-        vaciar_tabla(
-            "equipos_master"
-        )
-
-        registros = limpiar_registros(
-            equipos_backup.data
-        )
-
-        if registros:
-
-            (
-                supabase
-                .table(
-                    "equipos_master"
-                )
-                .insert(registros)
-                .execute()
-            )
-
-        # ------------------------------------------
-        # PAREJAS
-        # ------------------------------------------
-
-        parejas_backup = (
-            supabase
-            .table(
-                "estadisticas_parejas_backup"
-            )
-            .select("*")
-            .execute()
-        )
-
-        vaciar_tabla(
-            "estadisticas_parejas"
-        )
-
-        registros = limpiar_registros(
-            parejas_backup.data
-        )
-
-        if registros:
-
-            (
-                supabase
-                .table(
-                    "estadisticas_parejas"
-                )
-                .insert(registros)
-                .execute()
-            )
-
-        st.success(
-            "✅ Backup restaurado correctamente"
-        )
-
-    except Exception as e:
-
-        st.exception(e)
