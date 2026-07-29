@@ -40,6 +40,44 @@ estadisticas_parejas = pd.read_csv(
     "estadisticas_parejas.csv"
 )
 
+
+st.header("BUSQUEDA DE ENTEROS COMO FLOAT")
+
+for df_nombre, df in [
+    ("jugadores", jugadores_master),
+    ("equipos", equipos_master),
+    ("parejas", estadisticas_parejas)
+]:
+
+    st.subheader(df_nombre)
+
+    for col in df.columns:
+
+        try:
+
+            valores = (
+                df[col]
+                .dropna()
+                .astype(str)
+            )
+
+            ejemplos = valores[
+                valores.str.endswith(".0")
+            ]
+
+            if len(ejemplos) > 0:
+
+                st.warning(
+                    f"{df_nombre} -> {col}"
+                )
+
+                st.write(
+                    ejemplos.head(10).tolist()
+                )
+
+        except Exception:
+            pass
+            
 # ==================================================
 # JUGADORES
 # ==================================================
