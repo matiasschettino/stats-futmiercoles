@@ -1,13 +1,11 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-from supabase_utils import get_supabase
 
 # ==================================================
 # LOGIN
 # ==================================================
 
-st.title("📤 Cargar Master Inicial")
+st.title("🔍 Diagnóstico Master Inicial")
 
 usuario = st.text_input("Usuario")
 
@@ -27,58 +25,6 @@ if (
 st.success("✅ Acceso autorizado")
 
 # ==================================================
-# CONEXIÓN
-# ==================================================
-
-supabase = get_supabase()
-
-# ==================================================
-# FUNCIÓN LIMPIEZA
-# ==================================================
-
-def limpiar_dataframe(df):
-
-    if "id" in df.columns:
-        df = df.drop(columns=["id"])
-
-    df = df.replace(
-        [np.nan, np.inf, -np.inf],
-        None
-    )
-
-    for col in df.columns:
-
-        try:
-
-            serie = pd.to_numeric(
-                df[col],
-                errors="ignore"
-            )
-
-            if str(serie.dtype).startswith("float"):
-
-                valores = serie.dropna()
-
-                if len(valores) > 0:
-
-                    if (
-                        valores
-                        .apply(
-                            lambda x: float(x).is_integer()
-                        )
-                        .all()
-                    ):
-
-                        df[col] = serie.astype("Int64")
-
-        except Exception:
-            pass
-
-    df = df.astype(object)
-
-    return df
-
-# ==================================================
 # LEER CSV
 # ==================================================
 
@@ -95,128 +41,112 @@ estadisticas_parejas = pd.read_csv(
 )
 
 # ==================================================
-# INFO
+# JUGADORES
 # ==================================================
 
-st.subheader("📊 Resumen")
+st.header("👤 JUGADORES MASTER")
+
+st.write("Columnas:")
 
 st.write(
-    f"Jugadores Master: {len(jugadores_master)}"
-)
-
-st.write(
-    f"Equipos Master: {len(equipos_master)}"
-)
-
-st.write(
-    f"Parejas: {len(estadisticas_parejas)}"
-)
-
-st.divider()
-
-st.subheader("🔎 Columnas detectadas")
-
-st.write(
-    "Jugadores:",
     jugadores_master.columns.tolist()
 )
 
-st.write(
-    "Equipos:",
-    equipos_master.columns.tolist()
-)
+st.write("Tipos:")
 
 st.write(
-    "Parejas:",
-    estadisticas_parejas.columns.tolist()
+    jugadores_master.dtypes.astype(str)
 )
 
-# ==================================================
-# CARGA
-# ==================================================
-
-if st.button("📤 Cargar Master Inicial"):
+for col in jugadores_master.columns:
 
     try:
 
-        # ------------------------------------------
-        # JUGADORES
-        # ------------------------------------------
+        if str(jugadores_master[col].dtype) == "float64":
 
-        jugadores_df = limpiar_dataframe(
-            jugadores_master.copy()
-        )
-
-        registros_jugadores = (
-            jugadores_df
-            .to_dict("records")
-        )
-
-        if registros_jugadores:
-
-            (
-                supabase
-                .table("jugadores_master")
-                .insert(
-                    registros_jugadores
-                )
-                .execute()
+            st.warning(
+                f"FLOAT EN JUGADORES: {col}"
             )
 
-        # ------------------------------------------
-        # EQUIPOS
-        # ------------------------------------------
-
-        equipos_df = limpiar_dataframe(
-            equipos_master.copy()
-        )
-
-        registros_equipos = (
-            equipos_df
-            .to_dict("records")
-        )
-
-        if registros_equipos:
-
-            (
-                supabase
-                .table("equipos_master")
-                .insert(
-                    registros_equipos
-                )
-                .execute()
+            st.write(
+                jugadores_master[
+                    [col]
+                ].head(20)
             )
 
-        # ------------------------------------------
-        # PAREJAS
-        # ------------------------------------------
+    except:
+        pass
 
-        parejas_df = limpiar_dataframe(
-            estadisticas_parejas.copy()
-        )
+# ==================================================
+# EQUIPOS
+# ==================================================
 
-        registros_parejas = (
-            parejas_df
-            .to_dict("records")
-        )
+st.header("⚽ EQUIPOS MASTER")
 
-        if registros_parejas:
+st.write("Columnas:")
 
-            (
-                supabase
-                .table("estadisticas_parejas")
-                .insert(
-                    registros_parejas
-                )
-                .execute()
+st.write(
+    equipos_master.columns.tolist()
+)
+
+st.write("Tipos:")
+
+st.write(
+    equipos_master.dtypes.astype(str)
+)
+
+for col in equipos_master.columns:
+
+    try:
+
+        if str(equipos_master[col].dtype) == "float64":
+
+            st.warning(
+                f"FLOAT EN EQUIPOS: {col}"
             )
 
-        st.success(
-            "✅ Master inicial cargado correctamente"
-        )
+            st.write(
+                equipos_master[
+                    [col]
+                ].head(20)
+            )
 
-    except Exception as e:
+    except:
+        pass
 
-        st.error(
-            f"Error: {e}"
-        )
+# ==================================================
+# PAREJAS
+# ==================================================
+
+st.header("🤝 PAREJAS")
+
+st.write("Columnas:")
+
+st.write(
+    estadisticas_parejas.columns.tolist()
+)
+
+st.write("Tipos:")
+
+st.write(
+    estadisticas_parejas.dtypes.astype(str)
+)
+
+for col in estadisticas_parejas.columns:
+
+    try:
+
+        if str(estadisticas_parejas[col].dtype) == "float64":
+
+            st.warning(
+                f"FLOAT EN PAREJAS: {col}"
+            )
+
+            st.write(
+                estadisticas_parejas[
+                    [col]
+                ].head(20)
+            )
+
+    except:
+        pass
