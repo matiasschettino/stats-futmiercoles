@@ -4,6 +4,29 @@ from supabase_utils import get_supabase
 
 st.title("📥 Importar Históricos")
 
+
+# ==================================================
+# LOGIN
+# ==================================================
+
+
+usuario = st.text_input("Usuario")
+
+password = st.text_input(
+    "Contraseña",
+    type="password"
+)
+
+if (
+    usuario != st.secrets["ADMIN_USER"]
+    or
+    password != st.secrets["ADMIN_PASSWORD"]
+):
+    st.warning("Acceso restringido")
+    st.stop()
+
+st.success("✅ Acceso autorizado")
+
 supabase = get_supabase()
 
 # ==================================================
