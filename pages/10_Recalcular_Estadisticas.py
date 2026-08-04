@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+
 from supabase_utils import get_supabase
 
 # ==================================================
@@ -26,32 +27,32 @@ if (
 supabase = get_supabase()
 
 # ==================================================
-# BOTON
+# EJECUTAR CHEQUEO
 # ==================================================
 
 if st.button("🔄 Ejecutar Chequeo"):
 
     try:
 
-        # ==================================================
-        # LECTURA
-        # ==================================================
+        # ==========================================
+        # LEER TABLAS
+        # ==========================================
 
-        partidos = (
+        partidos_res = (
             supabase
             .table("partidos")
             .select("*")
             .execute()
         )
 
-        participaciones = (
+        participaciones_res = (
             supabase
             .table("participaciones")
             .select("*")
             .execute()
         )
 
-        jugadores_master = (
+        master_res = (
             supabase
             .table("jugadores_master")
             .select("*")
@@ -59,20 +60,145 @@ if st.button("🔄 Ejecutar Chequeo"):
         )
 
         partidos_df = pd.DataFrame(
-            partidos.data
+            partidos_res.data
         )
 
         participaciones_df = pd.DataFrame(
-            participaciones.data
+            participaciones_res.data
         )
 
         jugadores_master_df = pd.DataFrame(
-            jugadores_master.data
+            master_res.data
         )
 
-        # ==================================================
-        # ESTADISTICAS BASICAS
-        # ==================================================
+        # ==========================================
+        # DEBUG
+        # ==========================================
+
+        st.subheader("📋 Columnas detectadas")
+
+        st.write(
+            "Partidos:",
+            partidos_df.columns.tolist()
+        )
+
+        st.write(
+            "Participaciones:",
+            participaciones_df.columns.tolist()
+        )
+
+        st.write(
+            "Jugadores Master:",
+            jugadores_master_df.columns.tolist()
+        )
+
+        # ==========================================
+        # NORMALIZAR FECHAS
+        # ==========================================
+
+        partidos_df["id_partido"] = pd.to_datetime(
+            partidos_df["id_partido"]
+        )
+
+        participaciones_df["id_partido"] = pd.to_datetime(
+            participaciones_df["id_partido"]
+        )
+
+        # ==========================================
+        # RESULTADO LOCAL
+        # ==========================================
+
+        partidos_df["resultado_local"] = "E"
+
+        partidos_df.loc[
+            partidos_df["goles_local"]
+            >
+            partidos_df["goles_visitante"],
+            "resultado_local"
+        ] = "G"
+
+        partidos_df.loc[
+            partidos_df["goles_local"]
+            <
+            partidos_df["goles_visitante"],
+            "resultado_local"
+        ] = "P"
+
+        # ==========================================
+        # MERGE
+        # ==========================================
+
+        participaciones_df = participaciones_df.merge(
+            partidos_df[
+                [
+                    "id_partido",
+                    "Local",
+                    "Otros",
+                    "resultado_local"
+                ]
+            ],
+            on="id_partido",
+            how="left"
+        )
+
+        # ==========================================
+        # RESULTADO JUGADOR
+        # ==========================================
+
+        participaciones_df["resultado_jugador"] = ""
+
+        mask_local = (
+            participaciones_df["equipo"]
+            ==
+            participaciones_df["Local"]
+        )
+
+        participaciones_df.loc[
+            mask_local,
+            "resultado_jugador"
+        ] = participaciones_df[
+            "resultado_local"
+        ]
+
+        mask_visitante = (
+            participaciones_df["equipo"]
+            ==
+            participaciones_df["Otros"]
+        )
+
+        participaciones_df.loc[
+            mask_visitante
+            &
+            (
+                participaciones_df["resultado_local"]
+                == "G"
+            ),
+            "resultado_jugador"
+        ] = "P"
+
+        participaciones_df.loc[
+            mask_visitante
+            &
+            (
+                participaciones_df["resultado_local"]
+                == "P"
+            ),
+            "resultado_jugador"
+        ] = "G"
+
+        participaciones_df.loc[
+            mask_visitante
+            &
+            (
+                participaciones_df["resultado_local"]
+                == "E"
+            ),
+            "resultado_jugador"
+        ] = "E"
+
+        # ==========================================
+        # ESTADISTICAS JUGADOR
+        # ==========================================
 
         estadisticas_jugador = (
             participaciones_df
@@ -84,8 +210,6 @@ if st.button("🔄 Ejecutar Chequeo"):
             )
             .reset_index()
         )
-
-        # Asegurar columnas
 
         for col in ["G", "E", "P"]:
 
@@ -109,31 +233,9 @@ if st.button("🔄 Ejecutar Chequeo"):
             100
         ).round(2)
 
-        # ==================================================
-        # RESUMEN
-        # ==================================================
-
-        st.subheader("📊 Resumen")
-
-        st.write(
-            f"Partidos: {len(partidos_df)}"
-        )
-
-        st.write(
-            f"Participaciones: {len(participaciones_df)}"
-        )
-
-        st.write(
-            f"Jugadores recalculados: {len(estadisticas_jugador)}"
-        )
-
-        st.write(
-            f"Jugadores master: {len(jugadores_master_df)}"
-        )
-
-        # ==================================================
+        # ==========================================
         # COMPARACION
-        # ==================================================
+        # ==========================================
 
         master_cols = [
             "jugador",
@@ -153,27 +255,45 @@ if st.button("🔄 Ejecutar Chequeo"):
                     master_cols
                 ],
                 on="jugador",
+                how="outer",
                 suffixes=(
                     "_nuevo",
                     "_actual"
-                ),
-                how="outer"
+                )
             )
         )
 
         comparacion["OK"] = (
-            (comparacion["PJ_nuevo"] == comparacion["PJ_actual"])
-            &
-            (comparacion["G_nuevo"] == comparacion["G_actual"])
-            &
-            (comparacion["E_nuevo"] == comparacion["E_actual"])
-            &
-            (comparacion["P_nuevo"] == comparacion["P_actual"])
+            (
+                comparacion["PJ_nuevo"]
+                ==
+                comparacion["PJ_actual"]
+            )
             &
             (
-                comparacion["WinRate_nuevo"].round(2)
+                comparacion["G_nuevo"]
                 ==
-                comparacion["WinRate_actual"].round(2)
+                comparacion["G_actual"]
+            )
+            &
+            (
+                comparacion["E_nuevo"]
+                ==
+                comparacion["E_actual"]
+            )
+            &
+            (
+                comparacion["P_nuevo"]
+                ==
+                comparacion["P_actual"]
+            )
+            &
+            (
+                comparacion["WinRate_nuevo"]
+                .round(2)
+                ==
+                comparacion["WinRate_actual"]
+                .round(2)
             )
         )
 
@@ -181,31 +301,45 @@ if st.button("🔄 Ejecutar Chequeo"):
             comparacion["OK"] == False
         ]
 
-        # ==================================================
-        # RESULTADO
-        # ==================================================
+        # ==========================================
+        # RESULTADOS
+        # ==========================================
+
+        st.subheader("📊 Resumen")
+
+        st.write(
+            f"Partidos: {len(partidos_df)}"
+        )
+
+        st.write(
+            f"Participaciones: {len(participaciones_df)}"
+        )
+
+        st.write(
+            f"Jugadores calculados: {len(estadisticas_jugador)}"
+        )
+
+        st.write(
+            f"Jugadores master: {len(jugadores_master_df)}"
+        )
 
         st.subheader("✅ Validación")
 
         if len(diferencias) == 0:
 
             st.success(
-                "✅ PJ / G / E / P / WinRate coinciden 100% con jugadores_master"
+                "✅ PJ / G / E / P / WinRate coinciden 100%"
             )
 
         else:
 
             st.error(
-                f"⚠️ Se encontraron {len(diferencias)} diferencias"
+                f"⚠️ Diferencias encontradas: {len(diferencias)}"
             )
 
             st.dataframe(
                 diferencias
             )
-
-        # ==================================================
-        # MUESTRA
-        # ==================================================
 
         st.subheader(
             "👀 Vista previa recalculada"
