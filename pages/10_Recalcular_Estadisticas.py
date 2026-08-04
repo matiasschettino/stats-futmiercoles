@@ -26,10 +26,52 @@ if (
 
 st.success("✅ Acceso autorizado")
 
+# ==================================================
+# CONEXIÓN
+# ==================================================
+
 supabase = get_supabase()
 
 # ==================================================
-# BOTON
+# FUNCIONES
+# ==================================================
+
+def leer_tabla_completa(tabla):
+
+    registros = []
+
+    desde = 0
+    lote = 1000
+
+    while True:
+
+        respuesta = (
+            supabase
+            .table(tabla)
+            .select("*")
+            .range(
+                desde,
+                desde + lote - 1
+            )
+            .execute()
+        )
+
+        if not respuesta.data:
+            break
+
+        registros.extend(
+            respuesta.data
+        )
+
+        if len(respuesta.data) < lote:
+            break
+
+        desde += lote
+
+    return pd.DataFrame(registros)
+
+# ==================================================
+# BOTÓN
 # ==================================================
 
 if st.button("🔄 Ejecutar Chequeo"):
@@ -37,40 +79,23 @@ if st.button("🔄 Ejecutar Chequeo"):
     try:
 
         # ==========================================
-        # LECTURA
+        # LECTURA COMPLETA
         # ==========================================
 
-        partidos_df = pd.DataFrame(
-            supabase
-            .table("partidos")
-            .select("*")
-            .execute()
-            .data
+        partidos_df = leer_tabla_completa(
+            "partidos"
         )
 
-        participaciones_df = pd.DataFrame(
-            supabase
-            .table("participaciones")
-            .select("*")
-            .execute()
-            .data
+        participaciones_df = leer_tabla_completa(
+            "participaciones"
         )
 
-        jugadores_master_df = pd.DataFrame(
-            supabase
-            .table("jugadores_master")
-            .select("*")
-            .execute()
-            .data
+        jugadores_master_df = leer_tabla_completa(
+            "jugadores_master"
         )
-
-        st.write(
-    "Participaciones leídas:",
-    len(participaciones_df)
-)
 
         # ==========================================
-        # VALIDACIONES
+        # INFO
         # ==========================================
 
         st.subheader("📊 Datos leídos")
@@ -123,14 +148,19 @@ if st.button("🔄 Ejecutar Chequeo"):
             left_on="partido_id",
             right_on="id",
             how="left",
-            suffixes=("", "_partido")
+            suffixes=(
+                "",
+                "_partido"
+            )
         )
 
         # ==========================================
         # RESULTADO JUGADOR
         # ==========================================
 
-        participaciones_df["resultado_jugador"] = ""
+        participaciones_df[
+            "resultado_jugador"
+        ] = ""
 
         mask_local = (
             participaciones_df["equipo"]
@@ -141,7 +171,9 @@ if st.button("🔄 Ejecutar Chequeo"):
         participaciones_df.loc[
             mask_local,
             "resultado_jugador"
-        ] = participaciones_df["resultado_local"]
+        ] = participaciones_df[
+            "resultado_local"
+        ]
 
         mask_visitante = (
             participaciones_df["equipo"]
@@ -153,7 +185,9 @@ if st.button("🔄 Ejecutar Chequeo"):
             mask_visitante
             &
             (
-                participaciones_df["resultado_local"]
+                participaciones_df[
+                    "resultado_local"
+                ]
                 == "G"
             ),
             "resultado_jugador"
@@ -163,7 +197,9 @@ if st.button("🔄 Ejecutar Chequeo"):
             mask_visitante
             &
             (
-                participaciones_df["resultado_local"]
+                participaciones_df[
+                    "resultado_local"
+                ]
                 == "P"
             ),
             "resultado_jugador"
@@ -173,7 +209,9 @@ if st.button("🔄 Ejecutar Chequeo"):
             mask_visitante
             &
             (
-                participaciones_df["resultado_local"]
+                participaciones_df[
+                    "resultado_local"
+                ]
                 == "E"
             ),
             "resultado_jugador"
@@ -229,9 +267,13 @@ if st.button("🔄 Ejecutar Chequeo"):
         ]
 
         comparacion = (
-            estadisticas_jugador[columnas]
+            estadisticas_jugador[
+                columnas
+            ]
             .merge(
-                jugadores_master_df[columnas],
+                jugadores_master_df[
+                    columnas
+                ],
                 on="jugador",
                 how="outer",
                 suffixes=(
@@ -267,11 +309,13 @@ if st.button("🔄 Ejecutar Chequeo"):
             )
             &
             (
-                comparacion["WinRate_nuevo"]
-                    .round(2)
+                comparacion[
+                    "WinRate_nuevo"
+                ].round(2)
                 ==
-                comparacion["WinRate_actual"]
-                    .round(2)
+                comparacion[
+                    "WinRate_actual"
+                ].round(2)
             )
         )
 
@@ -288,7 +332,7 @@ if st.button("🔄 Ejecutar Chequeo"):
         if len(diferencias) == 0:
 
             st.success(
-                "✅ PJ / G / E / P / WinRate coinciden al 100%"
+                "✅ PJ / G / E / P / WinRate coinciden 100%"
             )
 
         else:
@@ -301,7 +345,13 @@ if st.button("🔄 Ejecutar Chequeo"):
                 diferencias
             )
 
-        st.subheader("👀 Vista previa")
+        # ==========================================
+        # PREVIEW
+        # ==========================================
+
+        st.subheader(
+            "👀 Vista previa recalculada"
+        )
 
         st.dataframe(
             estadisticas_jugador
