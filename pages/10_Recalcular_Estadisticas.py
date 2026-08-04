@@ -882,11 +882,11 @@ if st.button("🔄 Ejecutar Chequeo"):
 
 
         st.subheader(
-    "📋 Dataset final jugadores_master"
+               "📋 Dataset final jugadores_master"
 )
 
-st.dataframe(
-    estadisticas_jugador.head(20)
+       st.dataframe(
+               estadisticas_jugador.head(20)
 )
         
         # ==========================================
