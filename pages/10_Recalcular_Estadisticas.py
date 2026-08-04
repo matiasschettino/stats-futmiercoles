@@ -420,6 +420,114 @@ if st.button("🔄 Ejecutar Chequeo"):
             )
         )
 
+
+
+
+        # ==========================================
+# RIVALES
+# ==========================================
+
+enfrentamientos = []
+
+for partido_id, grupo in participaciones_df.groupby("partido_id"):
+
+    equipos = grupo["equipo"].unique()
+
+    if len(equipos) != 2:
+        continue
+
+    equipo_1 = equipos[0]
+    equipo_2 = equipos[1]
+
+    jugadores_1 = grupo[
+        grupo["equipo"] == equipo_1
+    ]
+
+    jugadores_2 = grupo[
+        grupo["equipo"] == equipo_2
+    ]
+
+    for _, j1 in jugadores_1.iterrows():
+
+        for _, j2 in jugadores_2.iterrows():
+
+            enfrentamientos.append({
+                "jugador": j1["jugador"],
+                "rival": j2["jugador"],
+                "resultado": j1["resultado_jugador"]
+            })
+
+            enfrentamientos.append({
+                "jugador": j2["jugador"],
+                "rival": j1["jugador"],
+                "resultado": j2["resultado_jugador"]
+            })
+
+enfrentamientos_df = pd.DataFrame(
+    enfrentamientos
+)
+
+rivales_frecuentes = (
+    enfrentamientos_df
+    .groupby(
+        ["jugador", "rival"]
+    )
+    .size()
+    .reset_index(name="partidos")
+)
+
+rival_principal = (
+    rivales_frecuentes
+    .sort_values(
+        "partidos",
+        ascending=False
+    )
+    .groupby("jugador")
+    .first()
+    .reset_index()
+)
+
+rival_principal = rival_principal.rename(
+    columns={
+        "rival": "rival_mas_frecuente",
+        "partidos": "pj_vs_rival_mas_frecuente"
+    }
+)
+
+estadisticas_jugador = (
+    estadisticas_jugador
+    .merge(
+        rival_principal[
+            [
+                "jugador",
+                "rival_mas_frecuente",
+                "pj_vs_rival_mas_frecuente"
+            ]
+        ],
+        on="jugador",
+        how="left"
+    )
+)
+
+st.subheader(
+    "⚔️ Rival Más Frecuente"
+)
+
+st.dataframe(
+    estadisticas_jugador[
+        [
+            "jugador",
+            "rival_mas_frecuente",
+            "pj_vs_rival_mas_frecuente"
+        ]
+    ]
+    .sort_values(
+        "pj_vs_rival_mas_frecuente",
+        ascending=False
+    )
+    .head(30)
+)
+
         # ==========================================
         # COMPARACION
         # ==========================================
