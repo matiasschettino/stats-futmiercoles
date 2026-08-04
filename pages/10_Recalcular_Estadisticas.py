@@ -34,45 +34,173 @@ if st.button("🔄 Ejecutar Chequeo"):
 
     try:
 
-        partidos_res = (
+        partidos_df = pd.DataFrame(
             supabase
             .table("partidos")
             .select("*")
-            .limit(5)
             .execute()
-        )
-
-        participaciones_res = (
-            supabase
-            .table("participaciones")
-            .select("*")
-            .limit(5)
-            .execute()
-        )
-
-        partidos_df = pd.DataFrame(
-            partidos_res.data
+            .data
         )
 
         participaciones_df = pd.DataFrame(
-            participaciones_res.data
+            supabase
+            .table("participaciones")
+            .select("*")
+            .execute()
+            .data
         )
 
-        st.subheader("PARTIDOS")
+        jugadores_master_df = pd.DataFrame(
+            supabase
+            .table("jugadores_master")
+            .select("*")
+            .execute()
+      *     .data
+        )
+
+        # ==*==================================*
+        # RESULTADO LOCAL
+       *# ================================*=====
+
+        partidos_df["resultado_local"] = "E"
+
+        partidos*df.loc[
+            partidos_df["goles_local"]
+            > partidos_df["goles_visitante"],
+            "resultado_local"
+        ] = "G"
+*        partidos_df.loc[
+            partidos_df["goles_local"]
+            < partidos_df["goles_visitante"],
+            "resultado_local"
+        ] = "P"
+
+        # =======*==============================
+   *    # MERGE
+        # ============*=========================
+
+       *participaciones_df = participacion*s_df.merge(
+            partidos_d*[
+                [
+                    "id",
+                    "equipo_local",
+                    "equipo_visitante",
+                    "resultado_local"
+                ]
+            ],
+            left*on="partido_id",
+            right*on="id",
+            how="left"
+  *     )
+
+        # ================*=====================
+        # RE*ULTADO JUGADOR
+        # =========*============================
+
+    *   participaciones_df["resultado_jugador"] = ""
+
+        mask_local =*(
+            participaciones_df["equipo"]
+            ==
+           *participaciones_df["equipo_local"]*        )
+
+        participaciones*df.loc[
+            mask_local,
+            "resultado_jugador"
+        ] = participaciones_df[
+            "resultado_local"
+        ]
+
+  *     mask_visitante = (
+          * participaciones_df["equipo"]
+    *       ==
+            participacio*es_df["equipo_visitante"]
+        *
+
+        participaciones_df.loc[
+            mask_visitante
+            &
+            (
+                participaciones_df["resultado_local"]
+                == "G"
+            ),
+            "resultado_jugad*r"
+        ] = "P"
+
+        partic*paciones_df.loc[
+            mask_visitante
+            &
+            (
+                participaciones_df["resultado_local"]
+                == "P"
+            ),
+            "resultado_jugador"
+        ] = "G"
+
+        participaciones_df.loc[
+            mask_visitante
+            &
+            (
+                participaciones_df["resultado_local"]
+                == "E"
+            ),
+            "resultado_jugador"
+        ] = "E"
+
+        # ======================================
+        # ESTADISTICAS JUGADOR
+        # ======================================
+
+        estadisticas_jugador = (
+            participaciones_df
+            .pivot_table(
+                index="jugador",
+                columns="resultado_jugador",
+                aggfunc="size",
+                fill_value=0
+            )
+            .reset_index()
+        )
+
+        for col in ["G", "E", "P"]:
+
+            if col not in estadisticas_jugador.columns:
+
+                estadisticas_jugador[col] = 0
+
+        estadisticas_jugador["PJ"] = (
+            estadisticas_jugador["G"]
+            +
+            estadisticas_jugador["E"]
+            +
+            estadisticas_jugador["P"]
+        )
+
+        estadisticas_jugador["WinRate"] = (
+            estadisticas_jugador["G"]
+            /
+            estadisticas_jugador["PJ"]
+            * 100
+        ).round(2)
+
+        st.success("✅ Estadísticas recalculadas")
 
         st.write(
-            partidos_df.columns.tolist()
+            f"Jugadores recalculados: {len(estadisticas_jugador)}"
         )
-
-        st.dataframe(partidos_df)
-
-        st.subheader("PARTICIPACIONES")
 
         st.write(
-            participaciones_df.columns.tolist()
+            f"Jugadores master: {len(jugadores_master_df)}"
         )
 
-        st.dataframe(participaciones_df)
+        st.dataframe(
+            estadisticas_jugador
+            .sort_values(
+                "PJ",
+                ascending=False
+            )
+            .head(30)
+        )
 
     except Exception as e:
 
