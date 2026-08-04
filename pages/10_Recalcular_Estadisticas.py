@@ -582,6 +582,77 @@ if st.button("🔄 Ejecutar Chequeo"):
                 how="left"
             )
         )
+
+                # ==========================================
+        # RACHA ACTIVA
+        # ==========================================
+
+        rachas_activas = []
+
+        for jugador, grupo in partidos_ordenados.groupby(
+            "jugador"
+        ):
+
+            grupo = grupo.sort_values(
+                "fecha"
+            )
+
+            resultados = list(
+                grupo["resultado_jugador"]
+            )
+
+            fechas = list(
+                grupo["fecha"]
+            )
+
+            if len(resultados) == 0:
+
+                rachas_activas.append(
+                    {
+                        "jugador": jugador,
+                        "racha_activa": 0
+                    }
+                )
+
+                continue
+
+            ultimo_resultado = resultados[-1]
+
+            contador = 0
+
+            for resultado in reversed(
+                resultados
+            ):
+
+                if resultado == ultimo_resultado:
+
+                    contador += 1
+
+                else:
+
+                    break
+
+            rachas_activas.append(
+                {
+                    "jugador": jugador,
+                    "racha_activa": contador,
+                    "tipo_racha_activa":
+                        ultimo_resultado
+                }
+            )
+
+        rachas_activas_df = pd.DataFrame(
+            rachas_activas
+        )
+
+        estadisticas_jugador = (
+            estadisticas_jugador
+            .merge(
+                rachas_activas_df,
+                on="jugador",
+                how="left"
+            )
+        )
         
         # ==========================================
         # COMPARACION
@@ -715,6 +786,25 @@ if st.button("🔄 Ejecutar Chequeo"):
             ]
             .sort_values(
                 "mejor_racha_ganadora",
+                ascending=False
+            )
+            .head(30)
+        )
+        
+        st.subheader(
+            "🔥 Racha Activa"
+        )
+
+        st.dataframe(
+            estadisticas_jugador[
+                [
+                    "jugador",
+                    "racha_activa",
+                    "tipo_racha_activa"
+                ]
+            ]
+            .sort_values(
+                "racha_activa",
                 ascending=False
             )
             .head(30)
