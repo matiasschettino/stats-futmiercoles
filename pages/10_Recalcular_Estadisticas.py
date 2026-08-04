@@ -507,7 +507,7 @@ if st.button("🔄 Ejecutar Chequeo"):
             )
         )
 
-        # ==========================================
+             # ==========================================
         # MEJOR RACHA GANADORA
         # ==========================================
 
@@ -558,29 +558,51 @@ if st.button("🔄 Ejecutar Chequeo"):
             "jugador"
         ):
 
-            racha_actual = 0
             mejor_racha = 0
+            mejor_desde = None
+            mejor_hasta = None
 
-            for resultado in grupo[
-                "resultado_jugador"
-            ]:
+            racha_actual = 0
+            fecha_inicio_actual = None
+
+            for _, fila in grupo.iterrows():
+
+                resultado = fila[
+                    "resultado_jugador"
+                ]
+
+                fecha = fila[
+                    "fecha"
+                ]
 
                 if resultado == "G":
+
+                    if racha_actual == 0:
+
+                        fecha_inicio_actual = fecha
 
                     racha_actual += 1
 
                     if racha_actual > mejor_racha:
 
                         mejor_racha = racha_actual
+                        mejor_desde = fecha_inicio_actual
+                        mejor_hasta = fecha
 
                 else:
 
                     racha_actual = 0
+                    fecha_inicio_actual = None
 
             mejores_rachas.append(
                 {
                     "jugador": jugador,
-                    "mejor_racha_ganadora": mejor_racha
+                    "mejor_racha_ganadora":
+                        mejor_racha,
+                    "racha_desde":
+                        mejor_desde,
+                    "racha_hasta":
+                        mejor_hasta
                 }
             )
 
@@ -596,7 +618,6 @@ if st.button("🔄 Ejecutar Chequeo"):
                 how="left"
             )
         )
-        
         
                 # ==========================================
         # RACHA ACTIVA
@@ -818,7 +839,9 @@ if st.button("🔄 Ejecutar Chequeo"):
             estadisticas_jugador[
                 [
                     "jugador",
-                    "mejor_racha_ganadora"
+                    "mejor_racha_ganadora",
+                    "racha_desde",
+                    "racha_hasta"
                 ]
             ]
             .sort_values(
