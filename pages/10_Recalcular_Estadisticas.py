@@ -26,10 +26,6 @@ if (
 
 st.success("✅ Acceso autorizado")
 
-# ==================================================
-# CONEXIÓN
-# ==================================================
-
 supabase = get_supabase()
 
 # ==================================================
@@ -49,10 +45,7 @@ def leer_tabla_completa(tabla):
             supabase
             .table(tabla)
             .select("*")
-            .range(
-                desde,
-                desde + lote - 1
-            )
+            .range(desde, desde + lote - 1)
             .execute()
         )
 
@@ -71,7 +64,7 @@ def leer_tabla_completa(tabla):
     return pd.DataFrame(registros)
 
 # ==================================================
-# BOTÓN
+# BOTON
 # ==================================================
 
 if st.button("🔄 Ejecutar Chequeo"):
@@ -79,7 +72,7 @@ if st.button("🔄 Ejecutar Chequeo"):
     try:
 
         # ==========================================
-        # LECTURA COMPLETA
+        # LECTURA
         # ==========================================
 
         partidos_df = leer_tabla_completa(
@@ -184,41 +177,26 @@ if st.button("🔄 Ejecutar Chequeo"):
         participaciones_df.loc[
             mask_visitante
             &
-            (
-                participaciones_df[
-                    "resultado_local"
-                ]
-                == "G"
-            ),
+            (participaciones_df["resultado_local"] == "G"),
             "resultado_jugador"
         ] = "P"
 
         participaciones_df.loc[
             mask_visitante
             &
-            (
-                participaciones_df[
-                    "resultado_local"
-                ]
-                == "P"
-            ),
+            (participaciones_df["resultado_local"] == "P"),
             "resultado_jugador"
         ] = "G"
 
         participaciones_df.loc[
             mask_visitante
             &
-            (
-                participaciones_df[
-                    "resultado_local"
-                ]
-                == "E"
-            ),
+            (participaciones_df["resultado_local"] == "E"),
             "resultado_jugador"
         ] = "E"
 
         # ==========================================
-        # ESTADISTICAS JUGADOR
+        # ESTADISTICAS BASICAS
         # ==========================================
 
         estadisticas_jugador = (
@@ -235,7 +213,6 @@ if st.button("🔄 Ejecutar Chequeo"):
         for col in ["G", "E", "P"]:
 
             if col not in estadisticas_jugador.columns:
-
                 estadisticas_jugador[col] = 0
 
         estadisticas_jugador["PJ"] = (
@@ -254,116 +231,57 @@ if st.button("🔄 Ejecutar Chequeo"):
         ).round(2)
 
         # ==========================================
-# EQUIPO FAVORITO
-# ==========================================
-
-partidos_por_equipo = (
-    participaciones_df
-    .groupby(
-        ["jugador", "equipo"]
-    )
-    .size()
-    .reset_index(name="partidos")
-)
-
-partidos_por_equipo = (
-    partidos_por_equipo
-    .sort_values(
-        ["jugador", "partidos"],
-        ascending=[True, False]
-    )
-)
-
-equipo_favorito = (
-    partidos_por_equipo
-    .groupby("jugador")
-    .first()
-    .reset_index()
-)
-
-equipo_favorito = equipo_favorito.rename(
-    columns={
-        "equipo": "equipo_favorito",
-        "partidos": "partidos_equipo_favorito"
-    }
-)
-
-estadisticas_jugador = estadisticas_jugador.merge(
-    equipo_favorito[
-        [
-            "jugador",
-            "equipo_favorito",
-            "partidos_equipo_favorito"
-        ]
-    ],
-    on="jugador",
-    how="left"
-)
-
-
-comparacion_favorito = (
-    estadisticas_jugador[
-        [
-            "jugador",
-            "equipo_favorito",
-            "partidos_equipo_favorito"
-        ]
-    ]
-    .merge(
-        jugadores_master_df[
-            [
-                "jugador",
-                "equipo_favorito",
-                "partidos_equipo_favorito"
-            ]
-        ],
-        on="jugador",
-        suffixes=(
-            "_nuevo",
-            "_actual"
-        )
-    )
-)
-
-diferencias_favorito = comparacion_favorito[
-    (
-        comparacion_favorito[
-            "equipo_favorito_nuevo"
-        ]
-        !=
-        comparacion_favorito[
-            "equipo_favorito_actual"
-        ]
-    )
-    |
-    (
-        comparacion_favorito[
-            "partidos_equipo_favorito_nuevo"
-        ]
-        !=
-        comparacion_favorito[
-            "partidos_equipo_favorito_actual"
-        ]
-    )
-]
-
-st.subheader(
-    "🏆 Equipo Favorito"
-)
-
-st.write(
-    f"Diferencias encontradas: {len(diferencias_favorito)}"
-)
-
-if len(diferencias_favorito):
-
-    st.dataframe(
-        diferencias_favorito
-    )
-        
-        
+        # EQUIPO FAVORITO
         # ==========================================
-        # COMPARACION
+
+        partidos_por_equipo = (
+            participaciones_df
+            .groupby(
+                ["jugador", "equipo"]
+            )
+            .size()
+            .reset_index(name="partidos")
+        )
+
+        partidos_por_equipo = (
+            partidos_por_equipo
+            .sort_values(
+                ["jugador", "partidos"],
+                ascending=[True, False]
+            )
+        )
+
+        equipo_favorito = (
+            partidos_por_equipo
+            .groupby("jugador")
+            .first()
+            .reset_index()
+        )
+
+        equipo_favorito = equipo_favorito.rename(
+            columns={
+                "equipo": "equipo_favorito",
+                "partidos": "partidos_equipo_favorito"
+            }
+        )
+
+        estadisticas_jugador = (
+            estadisticas_jugador
+            .merge(
+                equipo_favorito[
+                    [
+                        "jugador",
+                        "equipo_favorito",
+                        "partidos_equipo_favorito"
+                    ]
+                ],
+                on="jugador",
+                how="left"
+            )
+        )
+
+        # ==========================================
+        # COMPARACION BASICA
         # ==========================================
 
         columnas = [
@@ -376,13 +294,9 @@ if len(diferencias_favorito):
         ]
 
         comparacion = (
-            estadisticas_jugador[
-                columnas
-            ]
+            estadisticas_jugador[columnas]
             .merge(
-                jugadores_master_df[
-                    columnas
-                ],
+                jugadores_master_df[columnas],
                 on="jugador",
                 how="outer",
                 suffixes=(
@@ -393,38 +307,18 @@ if len(diferencias_favorito):
         )
 
         comparacion["OK"] = (
-            (
-                comparacion["PJ_nuevo"]
-                ==
-                comparacion["PJ_actual"]
-            )
+            (comparacion["PJ_nuevo"] == comparacion["PJ_actual"])
+            &
+            (comparacion["G_nuevo"] == comparacion["G_actual"])
+            &
+            (comparacion["E_nuevo"] == comparacion["E_actual"])
+            &
+            (comparacion["P_nuevo"] == comparacion["P_actual"])
             &
             (
-                comparacion["G_nuevo"]
+                comparacion["WinRate_nuevo"].round(2)
                 ==
-                comparacion["G_actual"]
-            )
-            &
-            (
-                comparacion["E_nuevo"]
-                ==
-                comparacion["E_actual"]
-            )
-            &
-            (
-                comparacion["P_nuevo"]
-                ==
-                comparacion["P_actual"]
-            )
-            &
-            (
-                comparacion[
-                    "WinRate_nuevo"
-                ].round(2)
-                ==
-                comparacion[
-                    "WinRate_actual"
-                ].round(2)
+                comparacion["WinRate_actual"].round(2)
             )
         )
 
@@ -446,8 +340,8 @@ if len(diferencias_favorito):
 
         else:
 
-            st.error(
-                f"⚠️ Se detectaron {len(diferencias)} diferencias"
+            st.warning(
+                f"⚠️ Diferencias encontradas: {len(diferencias)}"
             )
 
             st.dataframe(
@@ -455,11 +349,34 @@ if len(diferencias_favorito):
             )
 
         # ==========================================
+        # EQUIPO FAVORITO
+        # ==========================================
+
+        st.subheader(
+            "🏆 Equipo Favorito"
+        )
+
+        st.dataframe(
+            estadisticas_jugador[
+                [
+                    "jugador",
+                    "equipo_favorito",
+                    "partidos_equipo_favorito"
+                ]
+            ]
+            .sort_values(
+                "partidos_equipo_favorito",
+                ascending=False
+            )
+            .head(20)
+        )
+
+        # ==========================================
         # PREVIEW
         # ==========================================
 
         st.subheader(
-            "👀 Vista previa recalculada"
+            "👀 Vista previa"
         )
 
         st.dataframe(
