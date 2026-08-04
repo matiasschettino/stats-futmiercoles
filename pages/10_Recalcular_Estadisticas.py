@@ -34,6 +34,50 @@ if st.button("🔄 Ejecutar Chequeo"):
 
     try:
 
+        partidos_res = (
+            supabase
+            .table("partidos")
+            .select("*")
+            .limit(5)
+            .execute()
+        )
+
+        participaciones_res = (
+            supabase
+            .table("participaciones")
+            .select("*")
+            .limit(5)
+            .execute()
+        )
+
+        partidos_df = pd.DataFrame(
+            partidos_res.data
+        )
+
+        participaciones_df = pd.DataFrame(
+            participaciones_res.data
+        )
+
+        st.subheader("PARTIDOS")
+
+        st.write(
+            partidos_df.columns.tolist()
+        )
+
+        st.dataframe(partidos_df)
+
+        st.subheader("PARTICIPACIONES")
+
+        st.write(
+            participaciones_df.columns.tolist()
+        )
+
+        st.dataframe(participaciones_df)
+
+    except Exception as e:
+
+        st.exception(e)
+
         # ==========================================
         # LEER TABLAS
         # ==========================================
