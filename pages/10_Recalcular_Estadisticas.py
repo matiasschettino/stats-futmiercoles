@@ -583,9 +583,14 @@ if st.button("🔄 Ejecutar Chequeo"):
             )
         )
 
-        # ==========================================
+                # ==========================================
         # RACHA ACTIVA
         # ==========================================
+
+        partidos_df["fecha"] = pd.to_datetime(
+            partidos_df["fecha"],
+            errors="coerce"
+        )
 
         fecha_maxima = partidos_df["fecha"].max()
 
