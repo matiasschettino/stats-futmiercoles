@@ -880,14 +880,6 @@ if st.button("🔄 Ejecutar Chequeo"):
             .head(30)
         )
 
-
-        st.subheader(
-               "📋 Dataset final jugadores_master"
-)
-
-       st.dataframe(
-               estadisticas_jugador.head(20)
-)
         
         # ==========================================
         # PREVIEW
