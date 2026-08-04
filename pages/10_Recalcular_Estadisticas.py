@@ -552,7 +552,7 @@ if st.button("🔄 Ejecutar Chequeo"):
             comparacion["OK"] == False
         ]
 
-        # ==========================================
+              # ==========================================
         # RESULTADO
         # ==========================================
 
@@ -602,7 +602,11 @@ if st.button("🔄 Ejecutar Chequeo"):
             .head(30)
         )
 
-                st.subheader(
+        # ==========================================
+        # RIVAL MAS FRECUENTE
+        # ==========================================
+
+        st.subheader(
             "⚔️ Rival Más Frecuente"
         )
 
@@ -616,6 +620,23 @@ if st.button("🔄 Ejecutar Chequeo"):
             ]
             .sort_values(
                 "pj_vs_rival_mas_frecuente",
+                ascending=False
+            )
+            .head(30)
+        )
+
+        # ==========================================
+        # PREVIEW
+        # ==========================================
+
+        st.subheader(
+            "👀 Vista previa"
+        )
+
+        st.dataframe(
+            estadisticas_jugador
+            .sort_values(
+                "PJ",
                 ascending=False
             )
             .head(30)
