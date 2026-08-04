@@ -662,3 +662,10 @@ if st.button("🔄 Ejecutar Chequeo"):
     except Exception as e:
 
         st.exception(e)
+
+st.write(
+    estadisticas_jugador[
+        ["jugador", "G", "E", "P", "PJ"]
+    ]
+    .head()
+)
