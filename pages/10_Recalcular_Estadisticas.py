@@ -506,6 +506,83 @@ if st.button("🔄 Ejecutar Chequeo"):
                 how="left"
             )
         )
+
+                # ==========================================
+        # MEJOR RACHA GANADORA
+        # ==========================================
+
+        partidos_ordenados = (
+            participaciones_df[
+                [
+                    "jugador",
+                    "partido_id",
+                    "resultado_jugador"
+                ]
+            ]
+            .merge(
+                partidos_df[
+                    [
+                        "id",
+                        "fecha"
+                    ]
+                ],
+                left_on="partido_id",
+                right_on="id",
+                how="left"
+            )
+            .sort_values(
+                [
+                    "jugador",
+                    "fecha"
+                ]
+            )
+        )
+
+        mejores_rachas = []
+
+        for jugador, grupo in partidos_ordenados.groupby(
+            "jugador"
+        ):
+
+            racha_actual = 0
+            mejor_racha = 0
+
+            for resultado in grupo[
+                "resultado_jugador"
+            ]:
+
+                if resultado == "G":
+
+                    racha_actual += 1
+
+                    if racha_actual > mejor_racha:
+
+                        mejor_racha = racha_actual
+
+                else:
+
+                    racha_actual = 0
+
+            mejores_rachas.append(
+                {
+                    "jugador": jugador,
+                    "mejor_racha_ganadora": mejor_racha
+                }
+            )
+
+        mejores_rachas_df = pd.DataFrame(
+            mejores_rachas
+        )
+
+        estadisticas_jugador = (
+            estadisticas_jugador
+            .merge(
+                mejores_rachas_df,
+                on="jugador",
+                how="left"
+            )
+        )
+        
         # ==========================================
         # COMPARACION
         # ==========================================
@@ -625,6 +702,24 @@ if st.button("🔄 Ejecutar Chequeo"):
             .head(30)
         )
 
+                st.subheader(
+            "🏆 Mejor Racha Ganadora"
+        )
+
+        st.dataframe(
+            estadisticas_jugador[
+                [
+                    "jugador",
+                    "mejor_racha_ganadora"
+                ]
+            ]
+            .sort_values(
+                "mejor_racha_ganadora",
+                ascending=False
+            )
+            .head(30)
+        )
+
         # ==========================================
         # PREVIEW
         # ==========================================
@@ -663,9 +758,3 @@ if st.button("🔄 Ejecutar Chequeo"):
 
         st.exception(e)
 
-st.write(
-    estadisticas_jugador[
-        ["jugador", "G", "E", "P", "PJ"]
-    ]
-    .head()
-)
