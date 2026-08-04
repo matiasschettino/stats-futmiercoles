@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from itertools import combinations
 
 from supabase_utils import get_supabase
 
@@ -177,21 +178,30 @@ if st.button("🔄 Ejecutar Chequeo"):
         participaciones_df.loc[
             mask_visitante
             &
-            (participaciones_df["resultado_local"] == "G"),
+            (
+                participaciones_df["resultado_local"]
+                == "G"
+            ),
             "resultado_jugador"
         ] = "P"
 
         participaciones_df.loc[
             mask_visitante
             &
-            (participaciones_df["resultado_local"] == "P"),
+            (
+                participaciones_df["resultado_local"]
+                == "P"
+            ),
             "resultado_jugador"
         ] = "G"
 
         participaciones_df.loc[
             mask_visitante
             &
-            (participaciones_df["resultado_local"] == "E"),
+            (
+                participaciones_df["resultado_local"]
+                == "E"
+            ),
             "resultado_jugador"
         ] = "E"
 
@@ -256,13 +266,14 @@ if st.button("🔄 Ejecutar Chequeo"):
             .groupby("jugador")
             .first()
             .reset_index()
-        )
-
-        equipo_favorito = equipo_favorito.rename(
-            columns={
-                "equipo": "equipo_favorito",
-                "partidos": "partidos_equipo_favorito"
-            }
+            .rename(
+                columns={
+                    "equipo":
+                        "equipo_favorito",
+                    "partidos":
+                        "partidos_equipo_favorito"
+                }
+            )
         )
 
         estadisticas_jugador = (
@@ -281,155 +292,136 @@ if st.button("🔄 Ejecutar Chequeo"):
         )
 
         # ==========================================
-# MEJOR COMPAÑERO
-# ==========================================
-
-from itertools import combinations
-
-parejas_resultado = []
-
-for partido_id, grupo in participaciones_df.groupby("partido_id"):
-
-    for equipo, jugadores_equipo in grupo.groupby("equipo"):
-
-        lista_jugadores = sorted(
-            jugadores_equipo["jugador"].unique()
-        )
-
-        resultado = (
-            jugadores_equipo[
-                "resultado_jugador"
-            ]
-            .iloc[0]
-        )
-
-        for j1, j2 in combinations(
-            lista_jugadores,
-            2
-        ):
-
-            parejas_resultado.append(
-                {
-                    "jugador_1": j1,
-                    "jugador_2": j2,
-                    "resultado": resultado
-                }
-            )
-
-parejas_resultado_df = pd.DataFrame(
-    parejas_resultado
-)
-
-estadisticas_parejas = (
-    parejas_resultado_df
-    .pivot_table(
-        index=[
-            "jugador_1",
-            "jugador_2"
-        ],
-        columns="resultado",
-        aggfunc="size",
-        fill_value=0
-    )
-    .reset_index()
-)
-
-for col in ["G", "E", "P"]:
-
-    if col not in estadisticas_parejas.columns:
-
-        estadisticas_parejas[col] = 0
-
-estadisticas_parejas["PJ"] = (
-    estadisticas_parejas["G"]
-    +
-    estadisticas_parejas["E"]
-    +
-    estadisticas_parejas["P"]
-)
-
-estadisticas_parejas["WinRate"] = (
-    estadisticas_parejas["G"]
-    /
-    estadisticas_parejas["PJ"]
-    * 100
-).round(2)
-
-parejas_bidireccional = pd.concat(
-    [
-        estadisticas_parejas.rename(
-            columns={
-                "jugador_1": "jugador",
-                "jugador_2": "companero"
-            }
-        ),
-        estadisticas_parejas.rename(
-            columns={
-                "jugador_2": "jugador",
-                "jugador_1": "companero"
-            }
-        )
-    ]
-)
-
-mejor_companero = (
-    parejas_bidireccional
-    .sort_values(
-        "PJ",
-        ascending=False
-    )
-    .groupby("jugador")
-    .first()
-    .reset_index()
-)
-
-estadisticas_jugador = (
-    estadisticas_jugador
-    .merge(
-        mejor_companero[
-            [
-                "jugador",
-                "companero",
-                "PJ",
-                "WinRate"
-            ]
-        ].rename(
-            columns={
-                "companero":
-                    "mejor_companero",
-                "PJ":
-                    "pj_mejor_companero",
-                "WinRate":
-                    "wr_mejor_companero"
-            }
-        ),
-        on="jugador",
-        how="left"
-    )
-)
-
-
-st.subheader(
-    "🤝 Mejor Compañero"
-)
-
-st.dataframe(
-    estadisticas_jugador[
-        [
-            "jugador",
-            "mejor_companero",
-            "pj_mejor_companero",
-            "wr_mejor_companero"
-        ]
-    ]
-    .sort_values(
-        "pj_mejor_companero",
-        ascending=False
-    )
-    .head(20)
-)
+        # ESTADISTICAS PAREJAS
         # ==========================================
-        # COMPARACION BASICA
+
+        parejas_resultado = []
+
+        for partido_id, grupo in participaciones_df.groupby("partido_id"):
+
+            for equipo, jugadores_equipo in grupo.groupby("equipo"):
+
+                lista_jugadores = sorted(
+                    jugadores_equipo["jugador"].unique()
+                )
+
+                resultado = (
+                    jugadores_equipo[
+                        "resultado_jugador"
+                    ]
+                    .iloc[0]
+                )
+
+                for j1, j2 in combinations(
+                    lista_jugadores,
+                    2
+                ):
+
+                    parejas_resultado.append(
+                        {
+                            "jugador_1": j1,
+                            "jugador_2": j2,
+                            "resultado": resultado
+                        }
+                    )
+
+        parejas_df = pd.DataFrame(
+            parejas_resultado
+        )
+
+        estadisticas_parejas = (
+            parejas_df
+            .pivot_table(
+                index=[
+                    "jugador_1",
+                    "jugador_2"
+                ],
+                columns="resultado",
+                aggfunc="size",
+                fill_value=0
+            )
+            .reset_index()
+        )
+
+        for col in ["G", "E", "P"]:
+
+            if col not in estadisticas_parejas.columns:
+                estadisticas_parejas[col] = 0
+
+        estadisticas_parejas["PJ"] = (
+            estadisticas_parejas["G"]
+            +
+            estadisticas_parejas["E"]
+            +
+            estadisticas_parejas["P"]
+        )
+
+        estadisticas_parejas["WinRate"] = (
+            estadisticas_parejas["G"]
+            /
+            estadisticas_parejas["PJ"]
+            * 100
+        ).round(2)
+
+        # ==========================================
+        # MEJOR COMPAÑERO
+        # ==========================================
+
+        parejas_bidireccional = pd.concat(
+            [
+                estadisticas_parejas.rename(
+                    columns={
+                        "jugador_1": "jugador",
+                        "jugador_2": "companero"
+                    }
+                ),
+                estadisticas_parejas.rename(
+                    columns={
+                        "jugador_2": "jugador",
+                        "jugador_1": "companero"
+                    }
+                )
+            ]
+        )
+
+        mejor_companero = (
+            parejas_bidireccional
+            .sort_values(
+                "PJ",
+                ascending=False
+            )
+            .groupby("jugador")
+            .first()
+            .reset_index()
+        )
+
+        estadisticas_jugador = (
+            estadisticas_jugador
+            .merge(
+                mejor_companero[
+                    [
+                        "jugador",
+                        "companero",
+                        "PJ",
+                        "WinRate"
+                    ]
+                ].rename(
+                    columns={
+                        "companero":
+                            "mejor_companero",
+                        "PJ":
+                            "pj_mejor_companero",
+                        "WinRate":
+                            "wr_mejor_companero"
+                    }
+                ),
+                on="jugador",
+                how="left"
+            )
+        )
+
+        # ==========================================
+        # COMPARACION
         # ==========================================
 
         columnas = [
@@ -475,15 +467,19 @@ st.dataframe(
         ]
 
         # ==========================================
-        # RESULTADOS
+        # RESULTADO
         # ==========================================
 
         st.subheader("✅ Resultado")
 
+        st.write(
+            f"Parejas calculadas: {len(estadisticas_parejas)}"
+        )
+
         if len(diferencias) == 0:
 
             st.success(
-                "✅ PJ / G / E / P / WinRate coinciden 100%"
+                "✅ PJ / G / E / P / WinRate coinciden"
             )
 
         else:
@@ -497,26 +493,27 @@ st.dataframe(
             )
 
         # ==========================================
-        # EQUIPO FAVORITO
+        # MEJOR COMPAÑERO
         # ==========================================
 
         st.subheader(
-            "🏆 Equipo Favorito"
+            "🤝 Mejor Compañero"
         )
 
         st.dataframe(
             estadisticas_jugador[
                 [
                     "jugador",
-                    "equipo_favorito",
-                    "partidos_equipo_favorito"
+                    "mejor_companero",
+                    "pj_mejor_companero",
+                    "wr_mejor_companero"
                 ]
             ]
             .sort_values(
-                "partidos_equipo_favorito",
+                "pj_mejor_companero",
                 ascending=False
             )
-            .head(20)
+            .head(30)
         )
 
         # ==========================================
