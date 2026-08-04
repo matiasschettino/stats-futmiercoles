@@ -583,7 +583,7 @@ if st.button("🔄 Ejecutar Chequeo"):
             )
         )
 
-                        # ==========================================
+        # ==========================================
         # RACHA ACTIVA
         # ==========================================
 
@@ -822,7 +822,8 @@ if st.button("🔄 Ejecutar Chequeo"):
             ]
             .sort_values(
                 "racha_activa",
-                ascending=False
+                ascending=False,
+                na_position="last"
             )
             .head(30)
         )
