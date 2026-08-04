@@ -111,14 +111,28 @@ with tab4:
     st.subheader("Top 20 rachas activas")
 
     ranking = (
-        jugadores
-        .sort_values(
-            "racha_activa",
-            ascending=False
-        )
-        [["jugador", "racha_activa", "WinRate"]]
-        .head(20)
+    jugadores
+    .sort_values(
+        "racha_activa",
+        ascending=False,
+        na_position="last"
     )
+    [
+        [
+            "jugador",
+            "tipo_racha_activa",
+            "racha_activa",
+            "WinRate"
+        ]
+    ]
+    .rename(
+        columns={
+            "tipo_racha_activa": "Tipo",
+            "racha_activa": "Racha"
+        }
+    )
+    .head(20)
+)
 
     st.dataframe(
         ranking,
