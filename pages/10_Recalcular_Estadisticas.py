@@ -702,7 +702,7 @@ if st.button("🔄 Ejecutar Chequeo"):
             .head(30)
         )
 
-                st.subheader(
+        st.subheader(
             "🏆 Mejor Racha Ganadora"
         )
 
