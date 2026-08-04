@@ -507,9 +507,14 @@ if st.button("🔄 Ejecutar Chequeo"):
             )
         )
 
-                # ==========================================
+        # ==========================================
         # MEJOR RACHA GANADORA
         # ==========================================
+
+        partidos_df["fecha"] = pd.to_datetime(
+            partidos_df["fecha"],
+            errors="coerce"
+        )
 
         partidos_ordenados = (
             participaciones_df[
@@ -530,6 +535,15 @@ if st.button("🔄 Ejecutar Chequeo"):
                 right_on="id",
                 how="left"
             )
+        )
+
+        partidos_ordenados["fecha"] = pd.to_datetime(
+            partidos_ordenados["fecha"],
+            errors="coerce"
+        )
+
+        partidos_ordenados = (
+            partidos_ordenados
             .sort_values(
                 [
                     "jugador",
@@ -582,7 +596,8 @@ if st.button("🔄 Ejecutar Chequeo"):
                 how="left"
             )
         )
-
+        
+        
                 # ==========================================
         # RACHA ACTIVA
         # ==========================================
