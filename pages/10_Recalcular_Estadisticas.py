@@ -64,6 +64,11 @@ if st.button("🔄 Ejecutar Chequeo"):
             .data
         )
 
+        st.write(
+    "Participaciones leídas:",
+    len(participaciones_df)
+)
+
         # ==========================================
         # VALIDACIONES
         # ==========================================
