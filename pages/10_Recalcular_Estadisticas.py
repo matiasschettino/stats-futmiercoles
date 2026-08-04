@@ -767,6 +767,46 @@ if st.button("🔄 Ejecutar Chequeo"):
             comparacion["OK"] == False
         ]
 
+                # ==========================================
+        # DATASET FINAL JUGADORES MASTER
+        # ==========================================
+
+        columnas_finales = [
+            "jugador",
+            "PJ",
+            "G",
+            "E",
+            "P",
+            "WinRate",
+            "equipo_favorito",
+            "partidos_equipo_favorito",
+            "mejor_companero",
+            "pj_mejor_companero",
+            "wr_mejor_companero",
+            "rival_mas_frecuente",
+            "pj_vs_rival_mas_frecuente",
+            "mejor_racha_ganadora",
+            "racha_desde",
+            "racha_hasta",
+            "racha_activa",
+            "tipo_racha_activa"
+        ]
+
+        jugadores_master_nuevo = (
+            estadisticas_jugador[
+                columnas_finales
+            ]
+            .copy()
+        )
+
+        st.subheader(
+            "✅ jugadores_master_nuevo"
+        )
+
+        st.dataframe(
+            jugadores_master_nuevo.head(20)
+        )
+
               # ==========================================
         # RESULTADO
         # ==========================================
