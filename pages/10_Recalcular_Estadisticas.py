@@ -583,15 +583,47 @@ if st.button("🔄 Ejecutar Chequeo"):
             )
         )
 
-                # ==========================================
+                        # ==========================================
         # RACHA ACTIVA
         # ==========================================
+
+        fecha_maxima = partidos_df["fecha"].max()
+
+        fecha_corte = (
+            fecha_maxima -
+            pd.Timedelta(days=365)
+        )
+
+        jugadores_activos = (
+            partidos_ordenados[
+                partidos_ordenados["fecha"]
+                >=
+                fecha_corte
+            ]["jugador"]
+            .unique()
+        )
+
+        jugadores_activos = set(
+            jugadores_activos
+        )
 
         rachas_activas = []
 
         for jugador, grupo in partidos_ordenados.groupby(
             "jugador"
         ):
+
+            if jugador not in jugadores_activos:
+
+                rachas_activas.append(
+                    {
+                        "jugador": jugador,
+                        "racha_activa": None,
+                        "tipo_racha_activa": "Inactivo"
+                    }
+                )
+
+                continue
 
             grupo = grupo.sort_values(
                 "fecha"
@@ -600,21 +632,6 @@ if st.button("🔄 Ejecutar Chequeo"):
             resultados = list(
                 grupo["resultado_jugador"]
             )
-
-            fechas = list(
-                grupo["fecha"]
-            )
-
-            if len(resultados) == 0:
-
-                rachas_activas.append(
-                    {
-                        "jugador": jugador,
-                        "racha_activa": 0
-                    }
-                )
-
-                continue
 
             ultimo_resultado = resultados[-1]
 
