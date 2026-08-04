@@ -595,16 +595,25 @@ if st.button("🔄 Ejecutar Chequeo"):
                     fecha_inicio_actual = None
 
             mejores_rachas.append(
-                {
-                    "jugador": jugador,
-                    "mejor_racha_ganadora":
-                        mejor_racha,
-                    "racha_desde":
-                        mejor_desde,
-                    "racha_hasta":
-                        mejor_hasta
-                }
+    {
+        "jugador": jugador,
+        "mejor_racha_ganadora":
+            mejor_racha,
+        "racha_desde":
+            (
+                mejor_desde.date()
+                if pd.notnull(mejor_desde)
+                else None
+            ),
+        "racha_hasta":
+            (
+                mejor_hasta.date()
+                if pd.notnull(mejor_hasta)
+                else None
             )
+    }
+)
+            
 
         mejores_rachas_df = pd.DataFrame(
             mejores_rachas
