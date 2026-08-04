@@ -254,6 +254,115 @@ if st.button("🔄 Ejecutar Chequeo"):
         ).round(2)
 
         # ==========================================
+# EQUIPO FAVORITO
+# ==========================================
+
+partidos_por_equipo = (
+    participaciones_df
+    .groupby(
+        ["jugador", "equipo"]
+    )
+    .size()
+    .reset_index(name="partidos")
+)
+
+partidos_por_equipo = (
+    partidos_por_equipo
+    .sort_values(
+        ["jugador", "partidos"],
+        ascending=[True, False]
+    )
+)
+
+equipo_favorito = (
+    partidos_por_equipo
+    .groupby("jugador")
+    .first()
+    .reset_index()
+)
+
+equipo_favorito = equipo_favorito.rename(
+    columns={
+        "equipo": "equipo_favorito",
+        "partidos": "partidos_equipo_favorito"
+    }
+)
+
+estadisticas_jugador = estadisticas_jugador.merge(
+    equipo_favorito[
+        [
+            "jugador",
+            "equipo_favorito",
+            "partidos_equipo_favorito"
+        ]
+    ],
+    on="jugador",
+    how="left"
+)
+
+
+comparacion_favorito = (
+    estadisticas_jugador[
+        [
+            "jugador",
+            "equipo_favorito",
+            "partidos_equipo_favorito"
+        ]
+    ]
+    .merge(
+        jugadores_master_df[
+            [
+                "jugador",
+                "equipo_favorito",
+                "partidos_equipo_favorito"
+            ]
+        ],
+        on="jugador",
+        suffixes=(
+            "_nuevo",
+            "_actual"
+        )
+    )
+)
+
+diferencias_favorito = comparacion_favorito[
+    (
+        comparacion_favorito[
+            "equipo_favorito_nuevo"
+        ]
+        !=
+        comparacion_favorito[
+            "equipo_favorito_actual"
+        ]
+    )
+    |
+    (
+        comparacion_favorito[
+            "partidos_equipo_favorito_nuevo"
+        ]
+        !=
+        comparacion_favorito[
+            "partidos_equipo_favorito_actual"
+        ]
+    )
+]
+
+st.subheader(
+    "🏆 Equipo Favorito"
+)
+
+st.write(
+    f"Diferencias encontradas: {len(diferencias_favorito)}"
+)
+
+if len(diferencias_favorito):
+
+    st.dataframe(
+        diferencias_favorito
+    )
+        
+        
+        # ==========================================
         # COMPARACION
         # ==========================================
 
