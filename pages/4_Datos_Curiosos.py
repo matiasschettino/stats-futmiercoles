@@ -9,10 +9,7 @@ from supabase_utils import get_supabase
 # ==================================================
 
 st.title("📚 Datos Curiosos")
-
-st.markdown(
-    "Récords e hitos históricos de FutMiércoles."
-)
+st.markdown("Récords e hitos históricos de FutMiércoles.")
 
 supabase = get_supabase()
 
@@ -22,50 +19,37 @@ supabase = get_supabase()
 # ==================================================
 
 def leer_tabla_completa(tabla):
-
     registros = []
     desde = 0
     lote = 1000
 
     while True:
-
         respuesta = (
             supabase
             .table(tabla)
             .select("*")
-            .range(
-           *    desde,
-                desde +*lote - 1
-            )
+            .range(desde, desde + lote - 1)
             .execute()
         )
 
         if not respuesta.data:
             break
 
-        registros.extend(
-            respuesta.data
-        )
+        registros.extend(respuesta.data)
 
         if len(respuesta.data) < lote:
             break
 
         desde += lote
 
-    return pd.DataFrame(
-        registros
-    )
+    return pd.DataFrame(registros)
 
 
 # ==================================================
-# ACTUALIZAR DATOS
+# ACTUALIZACION MANUAL
 # ==================================================
 
-if st.button(
-    "🔄 Actualizar datos",
-    use_container_width=False
-):
-
+if st.button("🔄 Actualizar datos"):
     st.rerun()
 
 
@@ -74,30 +58,14 @@ if st.button(
 # ==================================================
 
 try:
-
-    partidos = leer_tabla_completa(
-        "partidos"
-    )
-
+    partidos = leer_tabla_completa("partidos")
 except Exception as error:
-
-    st.error(
-        "No se pudieron leer los partidos desde Supabase."
-    )
-
-    st.exception(
-        error
-    )
-
+    st.error("No se pudieron leer los partidos desde Supabase.")
+    st.exception(error)
     st.stop()
 
-
 if partidos.empty:
-
-    st.warning(
-        "La tabla partidos no contiene registros."
-    )
-
+    st.warning("La tabla partidos no contiene registros.")
     st.stop()
 
 
@@ -120,12 +88,10 @@ columnas_faltantes = [
 ]
 
 if columnas_faltantes:
-
     st.error(
         "Faltan columnas necesarias en la tabla partidos: "
         + ", ".join(columnas_faltantes)
     )
-
     st.stop()
 
 
@@ -158,14 +124,10 @@ partidos = partidos.dropna(
     ]
 ).copy()
 
-
 if partidos.empty:
-
     st.warning(
-        "No existen partidos con información completa "
-        "de fecha, equipos y goles."
+        "No existen partidos con información completa de fecha, equipos y goles."
     )
-
     st.stop()
 
 
@@ -175,14 +137,12 @@ if partidos.empty:
 
 partidos["goles_totales"] = (
     partidos["goles_local"]
-    +
-    partidos["goles_visitante"]
+    + partidos["goles_visitante"]
 )
 
 partidos["diferencia_goles"] = (
     partidos["goles_local"]
-    -
-    partidos["goles_visitante"]
+    - partidos["goles_visitante"]
 ).abs()
 
 
@@ -219,28 +179,17 @@ c1, c2, c3 = st.columns(3)
 
 c1.metric(
     "Partidos Históricos",
-    f"{len(partidos):,}".replace(
-        ",",
-        "."
-    )
+    f"{len(partidos):,}".replace(",", ".")
 )
 
 c2.metric(
     "Primer Partido",
-    primer_partido[
-        "fecha"
-    ].strftime(
-        "%d/%m/%Y"
-    )
+    primer_partido["fecha"].strftime("%d/%m/%Y")
 )
 
 c3.metric(
     "Último Partido",
-    ultimo_partido[
-        "fecha"
-    ].strftime(
-        "%d/%m/%Y"
-    )
+    ultimo_partido["fecha"].strftime("%d/%m/%Y")
 )
 
 st.divider()
@@ -250,9 +199,7 @@ st.divider()
 # PARTIDO CON MAS GOLES
 # ==================================================
 
-st.subheader(
-    "🔥 Partido con más goles"
-)
+st.subheader("🔥 Partido con más goles")
 
 st.success(
     f"{mas_goles['equipo_local']} "
@@ -262,13 +209,11 @@ st.success(
 )
 
 st.write(
-    "📅 Fecha: "
-    f"{mas_goles['fecha'].strftime('%d/%m/%Y')}"
+    f"📅 Fecha: {mas_goles['fecha'].strftime('%d/%m/%Y')}"
 )
 
 st.write(
-    "⚽ Total de goles: "
-    f"{int(mas_goles['goles_totales'])}"
+    f"⚽ Total de goles: {int(mas_goles['goles_totales'])}"
 )
 
 st.divider()
@@ -278,9 +223,7 @@ st.divider()
 # PARTIDO CON MENOS GOLES
 # ==================================================
 
-st.subheader(
-    "🧤 Partido con menos goles"
-)
+st.subheader("🧤 Partido con menos goles")
 
 st.info(
     f"{menos_goles['equipo_local']} "
@@ -290,13 +233,11 @@ st.info(
 )
 
 st.write(
-    "📅 Fecha: "
-    f"{menos_goles['fecha'].strftime('%d/%m/%Y')}"
+    f"📅 Fecha: {menos_goles['fecha'].strftime('%d/%m/%Y')}"
 )
 
 st.write(
-    "⚽ Total de goles: "
-    f"{int(menos_goles['goles_totales'])}"
+    f"⚽ Total de goles: {int(menos_goles['goles_totales'])}"
 )
 
 st.divider()
@@ -306,9 +247,7 @@ st.divider()
 # MAYOR GOLEADA
 # ==================================================
 
-st.subheader(
-    "💥 Mayor diferencia de goles"
-)
+st.subheader("💥 Mayor diferencia de goles")
 
 st.warning(
     f"{mayor_diferencia['equipo_local']} "
@@ -318,8 +257,7 @@ st.warning(
 )
 
 st.write(
-    "📅 Fecha: "
-    f"{mayor_diferencia['fecha'].strftime('%d/%m/%Y')}"
+    f"📅 Fecha: {mayor_diferencia['fecha'].strftime('%d/%m/%Y')}"
 )
 
 st.write(
@@ -334,9 +272,7 @@ st.divider()
 # ULTIMOS PARTIDOS
 # ==================================================
 
-st.subheader(
-    "🕒 Últimos partidos cargados"
-)
+st.subheader("🕒 Últimos partidos cargados")
 
 ultimos_partidos = (
     partidos[
@@ -348,19 +284,14 @@ ultimos_partidos = (
             "equipo_visitante"
         ]
     ]
-    .sort_values(
-        "fecha",
-        ascending=False
-    )
+    .sort_values("fecha", ascending=False)
     .head(10)
     .copy()
 )
 
 ultimos_partidos["fecha"] = (
     ultimos_partidos["fecha"]
-    .dt.strftime(
-        "%d/%m/%Y"
-    )
+    .dt.strftime("%d/%m/%Y")
 )
 
 ultimos_partidos = ultimos_partidos.rename(
@@ -386,9 +317,7 @@ st.divider()
 # TABLA RESUMEN
 # ==================================================
 
-st.subheader(
-    "🏆 Resumen de récords"
-)
+st.subheader("🏆 Resumen de récords")
 
 resumen = pd.DataFrame(
     {
@@ -418,38 +347,14 @@ resumen = pd.DataFrame(
             )
         ],
         "Valor": [
-            int(
-                mas_goles[
-                    "goles_totales"
-                ]
-            ),
-            int(
-                menos_goles[
-                    "goles_totales"
-                ]
-            ),
-            int(
-                mayor_diferencia[
-                    "diferencia_goles"
-                ]
-            )
+            int(mas_goles["goles_totales"]),
+            int(menos_goles["goles_totales"]),
+            int(mayor_diferencia["diferencia_goles"])
         ],
         "Fecha": [
-            mas_goles[
-                "fecha"
-            ].strftime(
-                "%d/%m/%Y"
-            ),
-            menos_goles[
-                "fecha"
-            ].strftime(
-                "%d/%m/%Y"
-            ),
-            mayor_diferencia[
-                "fecha"
-            ].strftime(
-                "%d/%m/%Y"
-            )
+            mas_goles["fecha"].strftime("%d/%m/%Y"),
+            menos_goles["fecha"].strftime("%d/%m/%Y"),
+            mayor_diferencia["fecha"].strftime("%d/%m/%Y")
         ]
     }
 )
