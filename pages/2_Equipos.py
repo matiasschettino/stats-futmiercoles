@@ -72,6 +72,7 @@ def texto_seguro(valor, reemplazo="Sin datos"):
 try:
     equipos = leer_tabla_completa("equipos_master")
     participaciones = leer_tabla_completa("participaciones")
+    partidos = leer_tabla_completa("partidos")
 
 except Exception as error:
     st.error("No se pudieron leer los datos desde Supabase.")
@@ -85,6 +86,10 @@ if equipos.empty:
 
 if participaciones.empty:
     st.warning("La tabla participaciones no contiene registros.")
+    st.stop()
+
+if partidos.empty:
+    st.warning("La tabla partidos no contiene registros.")
     st.stop()
 
 
@@ -107,13 +112,23 @@ columnas_equipos = [
 ]
 
 columnas_participaciones = [
+    "partido_id",
     "jugador",
     "equipo"
 ]
 
+columnas_partidos = [
+    "id",
+    "equipo_local",
+    "equipo_visitante",
+    "goles_local",
+    "goles_visitante"
+]
+
 for nombre_tabla, dataframe, columnas_requeridas in [
     ("equipos_master", equipos, columnas_equipos),
-    ("participaciones", participaciones, columnas_participaciones)
+    ("participaciones", participaciones, columnas_participaciones),
+    ("partidos", partidos, columnas_partidos)
 ]:
     faltantes = [
         columna
@@ -156,8 +171,84 @@ for columna in [
     )
 
 participaciones = participaciones.dropna(
-    subset=["jugador", "equipo"]
+    subset=["jugador", "equipo", "partido_id"]
 ).copy()
+
+partidos["goles_local"] = pd.to_numeric(
+    partidos["goles_local"],
+    errors="coerce"
+)
+
+partidos["goles_visitante"] = pd.to_numeric(
+    partidos["goles_visitante"],
+    errors="coerce"
+)
+
+partidos["resultado_local"] = "E"
+
+partidos.loc[
+    partidos["goles_local"] > partidos["goles_visitante"],
+    "resultado_local"
+] = "G"
+
+partidos.loc[
+    partidos["goles_local"] < partidos["goles_visitante"],
+    "resultado_local"
+] = "P"
+
+participaciones_resultados = participaciones.merge(
+    partidos[
+        [
+            "id",
+            "equipo_local",
+            "equipo_visitante",
+            "resultado_local"
+        ]
+    ],
+    left_on="partido_id",
+    right_on="id",
+    how="left",
+    suffixes=("", "_partido")
+)
+
+participaciones_resultados["resultado_jugador"] = ""
+
+mask_local = (
+    participaciones_resultados["equipo"]
+    == participaciones_resultados["equipo_local"]
+)
+
+mask_visitante = (
+    participaciones_resultados["equipo"]
+    == participaciones_resultados["equipo_visitante"]
+)
+
+participaciones_resultados.loc[
+    mask_local,
+    "resultado_jugador"
+] = participaciones_resultados["resultado_local"]
+
+participaciones_resultados.loc[
+    mask_visitante
+    & (participaciones_resultados["resultado_local"] == "G"),
+    "resultado_jugador"
+] = "P"
+
+participaciones_resultados.loc[
+    mask_visitante
+    & (participaciones_resultados["resultado_local"] == "P"),
+    "resultado_jugador"
+] = "G"
+
+participaciones_resultados.loc[
+    mask_visitante
+    & (participaciones_resultados["resultado_local"] == "E"),
+    "resultado_jugador"
+] = "E"
+
+participaciones_resultados = participaciones_resultados[
+    participaciones_resultados["resultado_jugador"].isin(["G", "E", "P"])
+].copy()
 
 
 # ==================================================
@@ -343,3 +434,108 @@ else:
         use_container_width=True,
         hide_index=True
     )
+
+st.divider()
+
+# ==================================================
+# RANKINGS DE JUGADORES DEL EQUIPO
+# Minimo 20 partidos
+# ==================================================
+
+rendimiento_equipo = (
+    participaciones_resultados[
+        participaciones_resultados["equipo"] == equipo
+    ]
+    .pivot_table(
+        index="jugador",
+        columns="resultado_jugador",
+        aggfunc="size",
+        fill_value=0
+    )
+    .reset_index()
+)
+
+rendimiento_equipo.columns.name = None
+
+for columna in ["G", "E", "P"]:
+    if columna not in rendimiento_equipo.columns:
+        rendimiento_equipo[columna] = 0
+
+rendimiento_equipo["PJ"] = (
+    rendimiento_equipo["G"]
+    + rendimiento_equipo["E"]
+    + rendimiento_equipo["P"]
+)
+
+rendimiento_equipo["WinRate"] = (
+    rendimiento_equipo["G"]
+    / rendimiento_equipo["PJ"].replace(0, pd.NA)
+    * 100
+).round(1).fillna(0)
+
+rendimiento_relevante = rendimiento_equipo[
+    rendimiento_equipo["PJ"] >= 20
+].copy()
+
+col_ganadores, col_perdedores = st.columns(2)
+
+with col_ganadores:
+    st.subheader("🏆 Top 10 más ganadores")
+
+    top_ganadores = (
+        rendimiento_relevante
+        .sort_values(
+            ["WinRate", "PJ", "G", "jugador"],
+            ascending=[False, False, False, True]
+        )
+        .head(10)
+        [["jugador", "PJ", "G", "E", "P", "WinRate"]]
+        .rename(
+            columns={
+                "jugador": "Jugador",
+                "WinRate": "Win Rate %"
+            }
+        )
+    )
+
+    if top_ganadores.empty:
+        st.info(
+            "No hay jugadores con al menos 20 partidos en este equipo."
+        )
+    else:
+        st.dataframe(
+            top_ganadores,
+            use_container_width=True,
+            hide_index=True
+        )
+
+with col_perdedores:
+    st.subheader("📉 Top 10 más perdedores")
+
+    top_perdedores = (
+        rendimiento_relevante
+        .sort_values(
+            ["WinRate", "PJ", "P", "jugador"],
+            ascending=[True, False, False, True]
+        )
+        .head(10)
+        [["jugador", "PJ", "G", "E", "P", "WinRate"]]
+        .rename(
+            columns={
+                "jugador": "Jugador",
+                "WinRate": "Win Rate %"
+            }
+        )
+    )
+
+    if top_perdedores.empty:
+        st.info(
+            "No hay jugadores con al menos 20 partidos en este equipo."
+        )
+    else:
+        st.dataframe(
+            top_perdedores,
+            use_container_width=True,
+            hide_index=True
+        )
+
