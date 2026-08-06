@@ -868,6 +868,13 @@ if st.button("🔄 Ejecutar Chequeo"):
             if st.button(
                 "🚀 Actualizar jugadores_master"
             ):
+                st.write("Entró al botón")
+                st.write(
+    f"Registros a actualizar: {len(jugadores_master_registros)}"
+)
+                st.write(
+    "Iniciando actualización..."
+)
 
                 for i in range(
                     0,
