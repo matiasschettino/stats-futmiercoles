@@ -720,6 +720,50 @@ if st.button("🔄 Ejecutar Chequeo"):
                 how="left"
             )
         )
+
+                # ==========================================
+        # DATASET FINAL JUGADORES_MASTER
+        # ==========================================
+
+        columnas_finales = [
+            "jugador",
+            "PJ",
+            "G",
+            "E",
+            "P",
+            "WinRate",
+            "equipo_favorito",
+            "partidos_equipo_favorito",
+            "mejor_companero",
+            "pj_mejor_companero",
+            "wr_mejor_companero",
+            "rival_mas_frecuente",
+            "pj_vs_rival_mas_frecuente",
+            "mejor_racha_ganadora",
+            "racha_desde",
+            "racha_hasta",
+            "racha_activa",
+            "tipo_racha_activa"
+        ]
+
+        jugadores_master_nuevo = (
+            estadisticas_jugador[
+                columnas_finales
+            ]
+            .copy()
+        )
+
+        st.write(
+            f"Jugadores recalculados: {len(jugadores_master_nuevo)}"
+        )
+
+                backup_actual = leer_tabla_completa(
+            "jugadores_master"
+        )
+
+        st.write(
+            f"Backup preparado: {len(backup_actual)} registros"
+        )
         
         # ==========================================
         # COMPARACION
