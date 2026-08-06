@@ -762,13 +762,13 @@ if st.button("🔄 Ejecutar Chequeo"):
         )
 
         backup_registros = (
-    backup_actual
-    .where(
-        pd.notnull(backup_actual),
-        None
-    )
-    .to_dict("records")
-)
+         backup_actual
+         .where(
+           pd.notnull(backup_actual),
+           None
+         )
+         .to_dict("records")
+        )
 
         st.write(
             f"Backup preparado: {len(backup_registros)} registros"
