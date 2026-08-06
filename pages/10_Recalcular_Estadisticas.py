@@ -28,6 +28,25 @@ supabase = get_supabase()
 
 
 # ==================================================
+# INICIALIZACION DE SESSION STATE
+# ==================================================
+
+valores_iniciales = {
+    "chequeo_realizado": False,
+    "backup_generado": False,
+    "backup_parejas_generado": False,
+    "backup_registros": None,
+    "jugadores_master_registros": None,
+    "backup_parejas_registros": None,
+    "estadisticas_parejas_registros": None
+}
+
+for clave, valor_inicial in valores_iniciales.items():
+    if clave not in st.session_state:
+        st.session_state[clave] = valor_inicial
+
+
+# ==================================================
 # FUNCIONES AUXILIARES
 # ==================================================
 
@@ -944,6 +963,18 @@ if st.session_state.get("chequeo_realizado", False):
 
     st.divider()
     st.subheader("🤝 Acciones sobre estadísticas de parejas")
+
+    datos_parejas_listos = (
+        st.session_state.get("backup_parejas_registros") is not None
+        and st.session_state.get("estadisticas_parejas_registros") is not None
+    )
+
+    if not datos_parejas_listos:
+        st.warning(
+            "Los datos de parejas todavía no están preparados. "
+            "Volvé a ejecutar el chequeo antes de usar estos botones."
+        )
+
     st.info(
         "El backup de parejas y la actualización son acciones independientes."
     )
@@ -954,12 +985,14 @@ if st.session_state.get("chequeo_realizado", False):
         if st.button(
             "💾 Backup estadísticas de parejas",
             key="btn_backup_estadisticas_parejas",
-            use_container_width=True
+            use_container_width=True,
+            disabled=not datos_parejas_listos
         ):
             try:
-                backup_parejas = st.session_state[
-                    "backup_parejas_registros"
-                ]
+                backup_parejas = st.session_state.get(
+                    "backup_parejas_registros",
+                    []
+                )
 
                 (
                     supabase
@@ -989,12 +1022,14 @@ if st.session_state.get("chequeo_realizado", False):
         if st.button(
             "🚀 Actualizar estadísticas de parejas",
             key="btn_actualizar_estadisticas_parejas",
-            use_container_width=True
+            use_container_width=True,
+            disabled=not datos_parejas_listos
         ):
             try:
-                registros_parejas = st.session_state[
-                    "estadisticas_parejas_registros"
-                ]
+                registros_parejas = st.session_state.get(
+                    "estadisticas_parejas_registros",
+                    []
+                )
 
                 st.write(
                     "Parejas a actualizar: "
