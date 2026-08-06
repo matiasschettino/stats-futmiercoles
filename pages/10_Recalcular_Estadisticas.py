@@ -38,7 +38,10 @@ valores_iniciales = {
     "backup_registros": None,
     "jugadores_master_registros": None,
     "backup_parejas_registros": None,
-    "estadisticas_parejas_registros": None
+    "estadisticas_parejas_registros": None,
+    "backup_equipos_registros": None,
+    "equipos_master_registros": None,
+    "backup_equipos_generado": False
 }
 
 for clave, valor_inicial in valores_iniciales.items():
@@ -142,6 +145,9 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         estadisticas_parejas_actual_df = leer_tabla_completa(
             "estadisticas_parejas"
         )
+        equipos_master_actual_df = leer_tabla_completa(
+            "equipos_master"
+        )
 
         if partidos_df.empty:
             raise ValueError("La tabla partidos está vacía.")
@@ -156,6 +162,9 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         st.write(
             "Estadísticas de parejas actuales: "
             f"{len(estadisticas_parejas_actual_df)}"
+        )
+        st.write(
+            f"Equipos Master actuales: {len(equipos_master_actual_df)}"
         )
 
         # ==========================================
@@ -629,6 +638,241 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         )
 
         # ==========================================
+        # ESTADISTICAS DE EQUIPOS
+        # ==========================================
+
+        equipos_local = partidos_df[
+            ["id", "equipo_local", "resultado_local"]
+        ].rename(
+            columns={
+                "equipo_local": "equipo",
+                "resultado_local": "resultado_equipo"
+            }
+        )
+
+        equipos_visitante = partidos_df[
+            ["id", "equipo_visitante", "resultado_local"]
+        ].rename(
+            columns={
+                "equipo_visitante": "equipo"
+            }
+        )
+
+        equipos_visitante["resultado_equipo"] = (
+            equipos_visitante["resultado_local"].map(
+                {
+                    "G": "P",
+                    "P": "G",
+                    "E": "E"
+                }
+            )
+        )
+
+        equipos_visitante = equipos_visitante.drop(
+            columns=["resultado_local"]
+        )
+
+        resultados_equipos = pd.concat(
+            [
+                equipos_local,
+                equipos_visitante
+            ],
+            ignore_index=True
+        )
+
+        resultados_equipos = resultados_equipos[
+            resultados_equipos["equipo"].notna()
+            & resultados_equipos["resultado_equipo"].isin(["G", "E", "P"])
+        ].copy()
+
+        estadisticas_equipos = (
+            resultados_equipos
+            .pivot_table(
+                index="equipo",
+                columns="resultado_equipo",
+                aggfunc="size",
+                fill_value=0
+            )
+            .reset_index()
+        )
+
+        estadisticas_equipos.columns.name = None
+
+        for columna in ["G", "E", "P"]:
+            if columna not in estadisticas_equipos.columns:
+                estadisticas_equipos[columna] = 0
+
+        estadisticas_equipos["PJ"] = (
+            estadisticas_equipos["G"]
+            + estadisticas_equipos["E"]
+            + estadisticas_equipos["P"]
+        )
+
+        estadisticas_equipos["WinRate"] = (
+            estadisticas_equipos["G"]
+            / estadisticas_equipos["PJ"].replace(0, pd.NA)
+            * 100
+        ).round(2).fillna(0)
+
+        # ==========================================
+        # JUGADOR MAS PRESENTE POR EQUIPO
+        # ==========================================
+
+        presencias_equipo = (
+            participaciones_validas
+            .groupby(["equipo", "jugador"])
+            .size()
+            .reset_index(name="pj_jugador_mas_presente")
+            .sort_values(
+                ["equipo", "pj_jugador_mas_presente", "jugador"],
+                ascending=[True, False, True]
+            )
+        )
+
+        jugador_mas_presente = (
+            presencias_equipo
+            .groupby("equipo", as_index=False)
+            .first()
+            .rename(
+                columns={
+                    "jugador": "jugador_mas_presente"
+                }
+            )
+        )
+
+        # ==========================================
+        # MEJOR JUGADOR HISTORICO POR EQUIPO
+        # Minimo 20 partidos
+        # ==========================================
+
+        rendimiento_jugador_equipo = (
+            participaciones_validas
+            .pivot_table(
+                index=["equipo", "jugador"],
+                columns="resultado_jugador",
+                aggfunc="size",
+                fill_value=0
+            )
+            .reset_index()
+        )
+
+        rendimiento_jugador_equipo.columns.name = None
+
+        for columna in ["G", "E", "P"]:
+            if columna not in rendimiento_jugador_equipo.columns:
+                rendimiento_jugador_equipo[columna] = 0
+
+        rendimiento_jugador_equipo["pj_mejor_jugador"] = (
+            rendimiento_jugador_equipo["G"]
+            + rendimiento_jugador_equipo["E"]
+            + rendimiento_jugador_equipo["P"]
+        )
+
+        rendimiento_jugador_equipo["wr_mejor_jugador"] = (
+            rendimiento_jugador_equipo["G"]
+            / rendimiento_jugador_equipo["pj_mejor_jugador"].replace(0, pd.NA)
+            * 100
+        ).round(2).fillna(0)
+
+        candidatos_mejor_jugador = rendimiento_jugador_equipo[
+            rendimiento_jugador_equipo["pj_mejor_jugador"] >= 20
+        ].copy()
+
+        if candidatos_mejor_jugador.empty:
+            mejor_jugador_historico = pd.DataFrame(
+                columns=[
+                    "equipo",
+                    "mejor_jugador_historico",
+                    "pj_mejor_jugador",
+                    "wr_mejor_jugador"
+                ]
+            )
+        else:
+            mejor_jugador_historico = (
+                candidatos_mejor_jugador
+                .sort_values(
+                    [
+                        "equipo",
+                        "wr_mejor_jugador",
+                        "pj_mejor_jugador",
+                        "jugador"
+                    ],
+                    ascending=[True, False, False, True]
+                )
+                .groupby("equipo", as_index=False)
+                .first()
+                .rename(
+                    columns={
+                        "jugador": "mejor_jugador_historico"
+                    }
+                )
+            )
+
+        equipos_master_nuevo = (
+            estadisticas_equipos
+            .merge(
+                jugador_mas_presente[
+                    [
+                        "equipo",
+                        "jugador_mas_presente",
+                        "pj_jugador_mas_presente"
+                    ]
+                ],
+                on="equipo",
+                how="left"
+            )
+            .merge(
+                mejor_jugador_historico[
+                    [
+                        "equipo",
+                        "mejor_jugador_historico",
+                        "pj_mejor_jugador",
+                        "wr_mejor_jugador"
+                    ]
+                ],
+                on="equipo",
+                how="left"
+            )
+        )
+
+        columnas_equipos = [
+            "equipo",
+            "PJ",
+            "G",
+            "E",
+            "P",
+            "WinRate",
+            "jugador_mas_presente",
+            "pj_jugador_mas_presente",
+            "mejor_jugador_historico",
+            "pj_mejor_jugador",
+            "wr_mejor_jugador"
+        ]
+
+        equipos_master_nuevo = equipos_master_nuevo[
+            columnas_equipos
+        ].copy()
+
+        for columna in [
+            "PJ",
+            "G",
+            "E",
+            "P",
+            "pj_jugador_mas_presente",
+            "pj_mejor_jugador"
+        ]:
+            equipos_master_nuevo[columna] = pd.to_numeric(
+                equipos_master_nuevo[columna],
+                errors="coerce"
+            ).astype("Int64")
+
+        for columna in ["WinRate", "wr_mejor_jugador"]:
+            equipos_master_nuevo[columna] = pd.to_numeric(
+                equipos_master_nuevo[columna],
+                errors="coerce"
+            ).round(2)
+
+        # ==========================================
         # DATASET FINAL
         # ==========================================
 
@@ -724,6 +968,12 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         estadisticas_parejas_registros = dataframe_a_registros(
             estadisticas_parejas_nuevo
         )
+        backup_equipos_registros = dataframe_a_registros(
+            equipos_master_actual_df
+        )
+        equipos_master_registros = dataframe_a_registros(
+            equipos_master_nuevo
+        )
 
         st.session_state["backup_registros"] = backup_registros
         st.session_state[
@@ -735,9 +985,16 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         st.session_state[
             "estadisticas_parejas_registros"
         ] = estadisticas_parejas_registros
+        st.session_state[
+            "backup_equipos_registros"
+        ] = backup_equipos_registros
+        st.session_state[
+            "equipos_master_registros"
+        ] = equipos_master_registros
         st.session_state["chequeo_realizado"] = True
         st.session_state["backup_generado"] = False
         st.session_state["backup_parejas_generado"] = False
+        st.session_state["backup_equipos_generado"] = False
 
         st.write(
             f"Jugadores recalculados: {len(jugadores_master_nuevo)}"
@@ -752,6 +1009,13 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         st.write(
             "Backup parejas preparado: "
             f"{len(backup_parejas_registros)} registros"
+        )
+        st.write(
+            f"Equipos recalculados: {len(equipos_master_registros)}"
+        )
+        st.write(
+            "Backup equipos preparado: "
+            f"{len(backup_equipos_registros)} registros"
         )
 
         # ==========================================
@@ -869,9 +1133,18 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
             hide_index=True
         )
 
-        st.subheader("👀 Vista previa")
+        st.subheader("👀 Vista previa jugadores")
         st.dataframe(
             jugadores_master_nuevo
+            .sort_values("PJ", ascending=False)
+            .head(30),
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.subheader("🛡️ Vista previa equipos_master")
+        st.dataframe(
+            equipos_master_nuevo
             .sort_values("PJ", ascending=False)
             .head(30),
             use_container_width=True,
@@ -1049,5 +1322,94 @@ if st.session_state.get("chequeo_realizado", False):
 
             except Exception as error:
                 st.error("No se pudo actualizar estadisticas_parejas.")
+                st.exception(error)
+
+    st.divider()
+    st.subheader("🛡️ Acciones sobre equipos_master")
+
+    datos_equipos_listos = (
+        st.session_state.get("backup_equipos_registros") is not None
+        and st.session_state.get("equipos_master_registros") is not None
+    )
+
+    if not datos_equipos_listos:
+        st.warning(
+            "Los datos de equipos todavía no están preparados. "
+            "Volvé a ejecutar el chequeo antes de usar estos botones."
+        )
+
+    st.info(
+        "El backup de equipos y la actualización son acciones independientes."
+    )
+
+    col_backup_equipos, col_actualizar_equipos = st.columns(2)
+
+    with col_backup_equipos:
+        if st.button(
+            "💾 Backup equipos_master",
+            key="btn_backup_equipos_master",
+            use_container_width=True,
+            disabled=not datos_equipos_listos
+        ):
+            try:
+                backup_equipos = st.session_state.get(
+                    "backup_equipos_registros",
+                    []
+                )
+
+                (
+                    supabase
+                    .table("equipos_master_backup")
+                    .delete()
+                    .neq("equipo", "")
+                    .execute()
+                )
+
+                insertar_en_lotes(
+                    "equipos_master_backup",
+                    backup_equipos
+                )
+
+                st.session_state["backup_equipos_generado"] = True
+
+                st.success(
+                    "✅ Backup de equipos actualizado con "
+                    f"{len(backup_equipos)} registros."
+                )
+
+            except Exception as error:
+                st.error("No se pudo generar el backup de equipos.")
+                st.exception(error)
+
+    with col_actualizar_equipos:
+        if st.button(
+            "🚀 Actualizar equipos_master",
+            key="btn_actualizar_equipos_master",
+            use_container_width=True,
+            disabled=not datos_equipos_listos
+        ):
+            try:
+                registros_equipos = st.session_state.get(
+                    "equipos_master_registros",
+                    []
+                )
+
+                st.write(
+                    f"Equipos a actualizar: {len(registros_equipos)}"
+                )
+
+                upsert_en_lotes(
+                    "equipos_master",
+                    registros_equipos,
+                    "equipo"
+                )
+
+                st.success(
+                    "✅ equipos_master actualizado con "
+                    f"{len(registros_equipos)} registros."
+                )
+
+            except Exception as error:
+                st.error("No se pudo actualizar equipos_master.")
                 st.exception(error)
 
