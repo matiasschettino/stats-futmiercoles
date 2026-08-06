@@ -757,6 +757,10 @@ if st.button("🔄 Ejecutar Chequeo"):
             f"Jugadores recalculados: {len(jugadores_master_nuevo)}"
         )
 
+        # ==========================================
+        # PREPARACION BACKUP Y UPDATE
+        # ==========================================
+
         backup_actual = leer_tabla_completa(
             "jugadores_master"
         )
@@ -780,34 +784,7 @@ if st.button("🔄 Ejecutar Chequeo"):
             f"Backup preparado: {len(backup_registros)} registros"
         )
 
-        supabase.table(
-            "jugadores_master_backup"
-        ).delete().neq(
-            "jugador",
-            ""
-        ).execute()
-
-        for i in range(
-            0,
-            len(backup_registros),
-            500
-        ):
-
-            lote = backup_registros[
-                i:i + 500
-            ]
-
-            supabase.table(
-                "jugadores_master_backup"
-            ).insert(
-                lote
-            ).execute()
-
-        st.success(
-            "✅ Backup actualizado"
-        )
-
-                jugadores_master_upsert = (
+        jugadores_master_upsert = (
             jugadores_master_nuevo
             .astype(object)
             .copy()
@@ -851,27 +828,67 @@ if st.button("🔄 Ejecutar Chequeo"):
             .to_dict("records")
         )
 
-        for i in range(
-            0,
-            len(jugadores_master_registros),
-            500
-        ):
+        col1, col2 = st.columns(2)
 
-            lote = jugadores_master_registros[
-                i:i + 500
-            ]
+        with col1:
 
-            supabase.table(
-                "jugadores_master"
-            ).upsert(
-                lote,
-                on_conflict="jugador"
-            ).execute()
+            if st.button(
+                "💾 Generar Backup"
+            ):
 
-        st.success(
-            "✅ jugadores_master actualizado"
-        )
-      
+                supabase.table(
+                    "jugadores_master_backup"
+                ).delete().neq(
+                    "jugador",
+                    ""
+                ).execute()
+
+                for i in range(
+                    0,
+                    len(backup_registros),
+                    500
+                ):
+
+                    lote = backup_registros[
+                        i:i + 500
+                    ]
+
+                    supabase.table(
+                        "jugadores_master_backup"
+                    ).insert(
+                        lote
+                    ).execute()
+
+                st.success(
+                    "✅ Backup actualizado"
+                )
+
+        with col2:
+
+            if st.button(
+                "🚀 Actualizar jugadores_master"
+            ):
+
+                for i in range(
+                    0,
+                    len(jugadores_master_registros),
+                    500
+                ):
+
+                    lote = jugadores_master_registros[
+                        i:i + 500
+                    ]
+
+                    supabase.table(
+                        "jugadores_master"
+                    ).upsert(
+                        lote,
+                        on_conflict="jugador"
+                    ).execute()
+
+                st.success(
+                    "✅ jugadores_master actualizado"
+                )
         
         # ==========================================
         # COMPARACION
@@ -919,46 +936,7 @@ if st.button("🔄 Ejecutar Chequeo"):
             comparacion["OK"] == False
         ]
 
-                # ==========================================
-        # DATASET FINAL JUGADORES MASTER
-        # ==========================================
-
-        columnas_finales = [
-            "jugador",
-            "PJ",
-            "G",
-            "E",
-            "P",
-            "WinRate",
-            "equipo_favorito",
-            "partidos_equipo_favorito",
-            "mejor_companero",
-            "pj_mejor_companero",
-            "wr_mejor_companero",
-            "rival_mas_frecuente",
-            "pj_vs_rival_mas_frecuente",
-            "mejor_racha_ganadora",
-            "racha_desde",
-            "racha_hasta",
-            "racha_activa",
-            "tipo_racha_activa"
-        ]
-
-        jugadores_master_nuevo = (
-            estadisticas_jugador[
-                columnas_finales
-            ]
-            .copy()
-        )
-
-        st.subheader(
-            "✅ jugadores_master_nuevo"
-        )
-
-        st.dataframe(
-            jugadores_master_nuevo.head(20)
-        )
-
+               
               # ==========================================
         # RESULTADO
         # ==========================================
@@ -1073,23 +1051,7 @@ if st.button("🔄 Ejecutar Chequeo"):
         )
 
         
-        # ==========================================
-        # PREVIEW
-        # ==========================================
-
-        st.subheader(
-            "👀 Vista previa"
-        )
-
-        st.dataframe(
-            estadisticas_jugador
-            .sort_values(
-                "PJ",
-                ascending=False
-            )
-            .head(30)
-        )
-
+    
         # ==========================================
         # PREVIEW
         # ==========================================
