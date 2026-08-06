@@ -768,15 +768,34 @@ if st.button("🔄 Ejecutar Chequeo"):
         )
 
         st.write(
-            f"Registros backup: {len(backup_registros)}"
+            f"Backup preparado: {len(backup_registros)} registros"
         )
 
-        st.write(
-            backup_actual.head(5)
-        )
+        supabase.table(
+            "jugadores_master_backup"
+        ).delete().neq(
+            "jugador",
+            ""
+        ).execute()
 
-        st.write(
-            f"Backup preparado: {len(backup_actual)} registros"
+        for i in range(
+            0,
+            len(backup_registros),
+            500
+        ):
+
+            lote = backup_registros[
+                i:i+500
+            ]
+
+            supabase.table(
+                "jugadores_master_backup"
+            ).insert(
+                lote
+            ).execute()
+
+        st.success(
+            "✅ Backup actualizado"
         )
         
         # ==========================================
