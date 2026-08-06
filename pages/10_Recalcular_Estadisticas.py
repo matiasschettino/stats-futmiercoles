@@ -3178,7 +3178,6 @@ if st.button("🔄 Ejecutar Chequeo"):
     except Exception as e:
 
         st.exception(e)
-
 # ==================================================
 # BOTONES OPERACIONALES
 # ==================================================
@@ -3255,5 +3254,4 @@ if "jugadores_master_registros" in st.session_state:
         st.success(
             "✅ jugadores_master actualizado"
         )
-
 
