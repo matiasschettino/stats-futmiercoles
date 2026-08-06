@@ -1413,3 +1413,324 @@ if st.session_state.get("chequeo_realizado", False):
                 st.error("No se pudo actualizar equipos_master.")
                 st.exception(error)
 
+    st.divider()
+    st.subheader("🌐 Acciones generales")
+    st.info(
+        "Estas acciones ejecutan el proceso sobre jugadores, parejas y equipos. "
+        "Los backups siguen siendo opcionales."
+    )
+
+    datos_generales_listos = all(
+        st.session_state.get(clave) is not None
+        for clave in [
+            "backup_registros",
+            "jugadores_master_registros",
+            "backup_parejas_registros",
+            "estadisticas_parejas_registros",
+            "backup_equipos_registros",
+            "equipos_master_registros"
+        ]
+    )
+
+    col_backup_general, col_actualizar_general, col_verificar = st.columns(3)
+
+    with col_backup_general:
+        if st.button(
+            "💾 Generar todos los backups",
+            key="btn_generar_todos_backups",
+            use_container_width=True,
+            disabled=not datos_generales_listos
+        ):
+            try:
+                with st.spinner("Generando todos los backups..."):
+                    backup_jugadores = st.session_state.get(
+                        "backup_registros",
+                        []
+                    )
+                    backup_parejas = st.session_state.get(
+                        "backup_parejas_registros",
+                        []
+                    )
+                    backup_equipos = st.session_state.get(
+                        "backup_equipos_registros",
+                        []
+                    )
+
+                    (
+                        supabase
+                        .table("jugadores_master_backup")
+                        .delete()
+                        .neq("jugador", "")
+                        .execute()
+                    )
+                    insertar_en_lotes(
+                        "jugadores_master_backup",
+                        backup_jugadores
+                    )
+
+                    (
+                        supabase
+                        .table("estadisticas_parejas_backup")
+                        .delete()
+                        .neq("jugador_1", "")
+                        .execute()
+                    )
+                    insertar_en_lotes(
+                        "estadisticas_parejas_backup",
+                        backup_parejas
+                    )
+
+                    (
+                        supabase
+                        .table("equipos_master_backup")
+                        .delete()
+                        .neq("equipo", "")
+                        .execute()
+                    )
+                    insertar_en_lotes(
+                        "equipos_master_backup",
+                        backup_equipos
+                    )
+
+                    st.session_state["backup_generado"] = True
+                    st.session_state["backup_parejas_generado"] = True
+                    st.session_state["backup_equipos_generado"] = True
+
+                st.success(
+                    "✅ Todos los backups fueron actualizados. "
+                    f"Jugadores: {len(backup_jugadores)}. "
+                    f"Parejas: {len(backup_parejas)}. "
+                    f"Equipos: {len(backup_equipos)}."
+                )
+
+            except Exception as error:
+                st.error("No se pudieron generar todos los backups.")
+                st.exception(error)
+
+    with col_actualizar_general:
+        if st.button(
+            "🚀 Actualizar todas las estadísticas",
+            key="btn_actualizar_todas_estadisticas",
+            use_container_width=True,
+            disabled=not datos_generales_listos
+        ):
+            try:
+                with st.spinner("Actualizando todas las tablas..."):
+                    registros_jugadores = st.session_state.get(
+                        "jugadores_master_registros",
+                        []
+                    )
+                    registros_parejas = st.session_state.get(
+                        "estadisticas_parejas_registros",
+                        []
+                    )
+                    registros_equipos = st.session_state.get(
+                        "equipos_master_registros",
+                        []
+                    )
+
+                    upsert_en_lotes(
+                        "jugadores_master",
+                        registros_jugadores,
+                        "jugador"
+                    )
+                    upsert_en_lotes(
+                        "estadisticas_parejas",
+                        registros_parejas,
+                        "jugador_1,jugador_2"
+                    )
+                    upsert_en_lotes(
+                        "equipos_master",
+                        registros_equipos,
+                        "equipo"
+                    )
+
+                st.success(
+                    "✅ Todas las estadísticas fueron actualizadas. "
+                    f"Jugadores: {len(registros_jugadores)}. "
+                    f"Parejas: {len(registros_parejas)}. "
+                    f"Equipos: {len(registros_equipos)}."
+                )
+
+            except Exception as error:
+                st.error("No se pudieron actualizar todas las estadísticas.")
+                st.exception(error)
+
+    with col_verificar:
+        if st.button(
+            "🔍 Verificar actualización",
+            key="btn_verificar_actualizacion",
+            use_container_width=True
+        ):
+            try:
+                with st.spinner("Verificando tablas en Supabase..."):
+                    jugadores_verificacion = leer_tabla_completa(
+                        "jugadores_master"
+                    )
+                    parejas_verificacion = leer_tabla_completa(
+                        "estadisticas_parejas"
+                    )
+                    equipos_verificacion = leer_tabla_completa(
+                        "equipos_master"
+                    )
+                    partidos_verificacion = leer_tabla_completa(
+                        "partidos"
+                    )
+                    participaciones_verificacion = leer_tabla_completa(
+                        "participaciones"
+                    )
+
+                errores_verificacion = []
+
+                if not jugadores_verificacion.empty:
+                    for columna in ["PJ", "G", "E", "P"]:
+                        jugadores_verificacion[columna] = pd.to_numeric(
+                            jugadores_verificacion[columna],
+                            errors="coerce"
+                        )
+
+                    jugadores_invalidos = jugadores_verificacion[
+                        jugadores_verificacion["PJ"]
+                        != (
+                            jugadores_verificacion["G"]
+                            + jugadores_verificacion["E"]
+                            + jugadores_verificacion["P"]
+                        )
+                    ]
+
+                    if not jugadores_invalidos.empty:
+                        errores_verificacion.append(
+                            "Hay jugadores donde PJ no coincide con G + E + P."
+                        )
+
+                    if jugadores_verificacion["jugador"].duplicated().any():
+                        errores_verificacion.append(
+                            "Hay jugadores duplicados en jugadores_master."
+                        )
+
+                if not parejas_verificacion.empty:
+                    for columna in ["PJ", "G", "E", "P"]:
+                        parejas_verificacion[columna] = pd.to_numeric(
+                            parejas_verificacion[columna],
+                            errors="coerce"
+                        )
+
+                    parejas_invalidas = parejas_verificacion[
+                        parejas_verificacion["PJ"]
+                        != (
+                            parejas_verificacion["G"]
+                            + parejas_verificacion["E"]
+                            + parejas_verificacion["P"]
+                        )
+                    ]
+
+                    if not parejas_invalidas.empty:
+                        errores_verificacion.append(
+                            "Hay parejas donde PJ no coincide con G + E + P."
+                        )
+
+                    if parejas_verificacion.duplicated(
+                        subset=["jugador_1", "jugador_2"]
+                    ).any():
+                        errores_verificacion.append(
+                            "Hay parejas duplicadas en estadisticas_parejas."
+                        )
+
+                if not equipos_verificacion.empty:
+                    for columna in ["PJ", "G", "E", "P"]:
+                        equipos_verificacion[columna] = pd.to_numeric(
+                            equipos_verificacion[columna],
+                            errors="coerce"
+                        )
+
+                    equipos_invalidos = equipos_verificacion[
+                        equipos_verificacion["PJ"]
+                        != (
+                            equipos_verificacion["G"]
+                            + equipos_verificacion["E"]
+                            + equipos_verificacion["P"]
+                        )
+                    ]
+
+                    if not equipos_invalidos.empty:
+                        errores_verificacion.append(
+                            "Hay equipos donde PJ no coincide con G + E + P."
+                        )
+
+                    if equipos_verificacion["equipo"].duplicated().any():
+                        errores_verificacion.append(
+                            "Hay equipos duplicados en equipos_master."
+                        )
+
+                ultimo_partido_texto = "Sin fecha"
+
+                if (
+                    not partidos_verificacion.empty
+                    and "fecha" in partidos_verificacion.columns
+                ):
+                    fechas_verificacion = pd.to_datetime(
+                        partidos_verificacion["fecha"],
+                        errors="coerce"
+                    )
+                    ultima_fecha = fechas_verificacion.max()
+
+                    if pd.notnull(ultima_fecha):
+                        ultimo_partido_texto = ultima_fecha.strftime(
+                            "%d/%m/%Y"
+                        )
+
+                resumen_verificacion = pd.DataFrame(
+                    {
+                        "Tabla": [
+                            "partidos",
+                            "participaciones",
+                            "jugadores_master",
+                            "estadisticas_parejas",
+                            "equipos_master"
+                        ],
+                        "Registros en Supabase": [
+                            len(partidos_verificacion),
+                            len(participaciones_verificacion),
+                            len(jugadores_verificacion),
+                            len(parejas_verificacion),
+                            len(equipos_verificacion)
+                        ],
+                        "Registros calculados": [
+                            None,
+                            None,
+                            len(st.session_state.get(
+                                "jugadores_master_registros"
+                            ) or []),
+                            len(st.session_state.get(
+                                "estadisticas_parejas_registros"
+                            ) or []),
+                            len(st.session_state.get(
+                                "equipos_master_registros"
+                            ) or [])
+                        ]
+                    }
+                )
+
+                st.dataframe(
+                    resumen_verificacion,
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                st.write(
+                    f"Último partido detectado: {ultimo_partido_texto}"
+                )
+
+                if errores_verificacion:
+                    st.error("Se detectaron inconsistencias:")
+                    for mensaje in errores_verificacion:
+                        st.write(f"• {mensaje}")
+                else:
+                    st.success(
+                        "✅ Verificación completada sin inconsistencias."
+                    )
+
+            except Exception as error:
+                st.error("No se pudo verificar la actualización.")
+                st.exception(error)
+
