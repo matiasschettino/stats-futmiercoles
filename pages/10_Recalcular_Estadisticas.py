@@ -806,17 +806,45 @@ if st.button("🔄 Ejecutar Chequeo"):
         st.success(
             "✅ Backup actualizado"
         )
-        
-        jugadores_master_upsert = (
+
+                jugadores_master_upsert = (
             jugadores_master_nuevo
             .astype(object)
-            .where(
-                pd.notnull(
-                    jugadores_master_nuevo
-                ),
+            .copy()
+        )
+
+        jugadores_master_upsert = (
+            jugadores_master_upsert.where(
+                pd.notnull(jugadores_master_upsert),
                 None
             )
         )
+
+        if "racha_desde" in jugadores_master_upsert.columns:
+
+            jugadores_master_upsert[
+                "racha_desde"
+            ] = jugadores_master_upsert[
+                "racha_desde"
+            ].apply(
+                lambda x:
+                x.isoformat()
+                if x is not None
+                else None
+            )
+
+        if "racha_hasta" in jugadores_master_upsert.columns:
+
+            jugadores_master_upsert[
+                "racha_hasta"
+            ] = jugadores_master_upsert[
+                "racha_hasta"
+            ].apply(
+                lambda x:
+                x.isoformat()
+                if x is not None
+                else None
+            )
 
         jugadores_master_registros = (
             jugadores_master_upsert
@@ -843,6 +871,7 @@ if st.button("🔄 Ejecutar Chequeo"):
         st.success(
             "✅ jugadores_master actualizado"
         )
+      
         
         # ==========================================
         # COMPARACION
