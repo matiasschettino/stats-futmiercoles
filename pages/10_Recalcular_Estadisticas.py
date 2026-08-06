@@ -757,17 +757,23 @@ if st.button("🔄 Ejecutar Chequeo"):
             f"Jugadores recalculados: {len(jugadores_master_nuevo)}"
         )
 
-        backup_actual = leer_tabla_completa(
+                backup_actual = leer_tabla_completa(
             "jugadores_master"
         )
 
+        backup_actual = (
+            backup_actual
+            .astype(object)
+        )
+
+        backup_actual = backup_actual.where(
+            pd.notnull(backup_actual),
+            None
+        )
+
         backup_registros = (
-         backup_actual
-         .where(
-           pd.notnull(backup_actual),
-           None
-         )
-         .to_dict("records")
+            backup_actual
+            .to_dict("records")
         )
 
         st.write(
@@ -788,7 +794,7 @@ if st.button("🔄 Ejecutar Chequeo"):
         ):
 
             lote = backup_registros[
-                i:i+500
+                i:i + 500
             ]
 
             supabase.table(
@@ -800,7 +806,6 @@ if st.button("🔄 Ejecutar Chequeo"):
         st.success(
             "✅ Backup actualizado"
         )
-        
         # ==========================================
         # COMPARACION
         # ==========================================
