@@ -1,116 +1,303 @@
 import streamlit as st
 import pandas as pd
 
-# ========================
-# Carga de datos
-# ========================
+from supabase_utils import get_supabase
 
-equipos = pd.read_csv("equipos_master.csv")
-participaciones = pd.read_csv("participaciones.csv")
 
-# ========================
-# Solo los 5 equipos con más partidos
-# ========================
-
-equipos_top = (
-    equipos
-    .sort_values("PJ", ascending=False)
-    .head(5)
-)
-
-# ========================
-# Título
-# ========================
+# ==================================================
+# CONFIGURACION
+# ==================================================
 
 st.title("⚽ Equipos")
 
-# ========================
-# Selector
-# ========================
+supabase = get_supabase()
+
+
+# ==================================================
+# FUNCIONES
+# ==================================================
+
+def leer_tabla_completa(tabla):
+    registros = []
+    desde = 0
+    lote = 1000
+
+    while True:
+        respuesta = (
+            supabase
+            .table(tabla)
+            .select("*")
+            .range(desde, desde + lote - 1)
+            .execute()
+        )
+
+        if not respuesta.data:
+            break
+
+        registros.extend(respuesta.data)
+
+        if len(respuesta.data) < lote:
+            break
+
+        desde += lote
+
+    return pd.DataFrame(registros)
+
+
+def entero_seguro(valor):
+    if valor is None or pd.isna(valor):
+        return 0
+
+    return int(valor)
+
+
+def decimal_seguro(valor):
+    if valor is None or pd.isna(valor):
+        return 0.0
+
+    return float(valor)
+
+
+def texto_seguro(valor, reemplazo="Sin datos"):
+    if valor is None or pd.isna(valor) or str(valor).strip() == "":
+        return reemplazo
+
+    return str(valor)
+
+
+# ==================================================
+# CARGA DESDE SUPABASE
+# ==================================================
+
+try:
+    equipos = leer_tabla_completa("equipos_master")
+    participaciones = leer_tabla_completa("participaciones")
+
+except Exception as error:
+    st.error("No se pudieron leer los datos desde Supabase.")
+    st.exception(error)
+    st.stop()
+
+
+if equipos.empty:
+    st.warning("La tabla equipos_master no contiene registros.")
+    st.stop()
+
+if participaciones.empty:
+    st.warning("La tabla participaciones no contiene registros.")
+    st.stop()
+
+
+# ==================================================
+# VALIDACION DE COLUMNAS
+# ==================================================
+
+columnas_equipos = [
+    "equipo",
+    "PJ",
+    "G",
+    "E",
+    "P",
+    "WinRate",
+    "jugador_mas_presente",
+    "pj_jugador_mas_presente",
+    "mejor_jugador_historico",
+    "pj_mejor_jugador",
+    "wr_mejor_jugador"
+]
+
+columnas_participaciones = [
+    "jugador",
+    "equipo"
+]
+
+for nombre_tabla, dataframe, columnas_requeridas in [
+    ("equipos_master", equipos, columnas_equipos),
+    ("participaciones", participaciones, columnas_participaciones)
+]:
+    faltantes = [
+        columna
+        for columna in columnas_requeridas
+        if columna not in dataframe.columns
+    ]
+
+    if faltantes:
+        st.error(
+            f"Faltan columnas en {nombre_tabla}: "
+            + ", ".join(faltantes)
+        )
+        st.stop()
+
+
+# ==================================================
+# NORMALIZACION
+# ==================================================
+
+for columna in [
+    "PJ",
+    "G",
+    "E",
+    "P",
+    "pj_jugador_mas_presente",
+    "pj_mejor_jugador"
+]:
+    equipos[columna] = pd.to_numeric(
+        equipos[columna],
+        errors="coerce"
+    )
+
+for columna in [
+    "WinRate",
+    "wr_mejor_jugador"
+]:
+    equipos[columna] = pd.to_numeric(
+        equipos[columna],
+        errors="coerce"
+    )
+
+participaciones = participaciones.dropna(
+    subset=["jugador", "equipo"]
+).copy()
+
+
+# ==================================================
+# SOLO LOS 5 EQUIPOS CON MAS PARTIDOS
+# ==================================================
+
+equipos_top = (
+    equipos
+    .dropna(subset=["equipo"])
+    .sort_values(
+        ["PJ", "equipo"],
+        ascending=[False, True]
+    )
+    .head(5)
+    .copy()
+)
+
+if equipos_top.empty:
+    st.warning("No hay equipos disponibles para mostrar.")
+    st.stop()
+
+
+# ==================================================
+# SELECTOR
+# ==================================================
 
 equipo = st.selectbox(
     "🔎 Seleccionar equipo",
-    equipos_top["equipo"].tolist()
+    equipos_top["equipo"].astype(str).tolist(),
+    index=None,
+    placeholder="Seleccioná un equipo..."
 )
 
-info = equipos_top[
-    equipos_top["equipo"] == equipo
-].iloc[0]
+if equipo is None:
+    st.info("Seleccioná un equipo para ver sus estadísticas.")
+    st.stop()
 
-# ========================
-# Encabezado
-# ========================
+filas_equipo = equipos_top[
+    equipos_top["equipo"] == equipo
+]
+
+if filas_equipo.empty:
+    st.warning("No se encontraron datos para el equipo seleccionado.")
+    st.stop()
+
+info = filas_equipo.iloc[0]
+
+
+# ==================================================
+# ENCABEZADO
+# ==================================================
 
 st.header(f"⚽ {equipo}")
 
-# ========================
-# KPIs principales
-# ========================
+
+# ==================================================
+# KPIS PRINCIPALES
+# ==================================================
 
 c1, c2, c3, c4 = st.columns(4)
 
 c1.metric(
     "PJ",
-    int(info["PJ"])
+    entero_seguro(info.get("PJ"))
 )
 
 c2.metric(
     "Victorias",
-    int(info["G"])
+    entero_seguro(info.get("G"))
 )
 
 c3.metric(
     "Derrotas",
-    int(info["P"])
+    entero_seguro(info.get("P"))
 )
 
 c4.metric(
     "Win Rate",
-    f"{info['WinRate']}%"
+    f"{decimal_seguro(info.get('WinRate')):.1f}%"
 )
 
 st.divider()
 
-# ========================
-# Información destacada
-# ========================
+
+# ==================================================
+# INFORMACION DESTACADA
+# ==================================================
 
 col1, col2 = st.columns(2)
 
 with col1:
-
     st.info(
-        f"👑 Jugador más presente: {info['jugador_mas_presente']}"
+        "👑 Jugador más presente: "
+        f"{texto_seguro(info.get('jugador_mas_presente'))} "
+        f"({entero_seguro(info.get('pj_jugador_mas_presente'))} PJ)"
     )
 
 with col2:
-
-    st.info(
-        f"🏆 Mejor jugador histórico: {info['mejor_jugador_historico']}"
+    mejor_jugador = texto_seguro(
+        info.get("mejor_jugador_historico")
     )
+
+    if mejor_jugador == "Sin datos":
+        st.info(
+            "🏆 Mejor jugador histórico: Sin datos "
+            "(se requieren al menos 20 partidos)"
+        )
+    else:
+        st.info(
+            "🏆 Mejor jugador histórico: "
+            f"{mejor_jugador} "
+            f"({entero_seguro(info.get('pj_mejor_jugador'))} PJ, "
+            f"{decimal_seguro(info.get('wr_mejor_jugador')):.1f}% WR)"
+        )
 
 st.divider()
 
-# ========================
-# Resumen
-# ========================
 
-resumen = pd.DataFrame({
-    "Indicador": [
-        "Partidos Jugados",
-        "Victorias",
-        "Empates",
-        "Derrotas",
-        "Win Rate"
-    ],
-    "Valor": [
-        int(info["PJ"]),
-        int(info["G"]),
-        int(info["E"]),
-        int(info["P"]),
-        f"{info['WinRate']}%"
-    ]
-})
+# ==================================================
+# RESUMEN
+# ==================================================
+
+resumen = pd.DataFrame(
+    {
+        "Indicador": [
+            "Partidos Jugados",
+            "Victorias",
+            "Empates",
+            "Derrotas",
+            "Win Rate"
+        ],
+        "Valor": [
+            entero_seguro(info.get("PJ")),
+            entero_seguro(info.get("G")),
+            entero_seguro(info.get("E")),
+            entero_seguro(info.get("P")),
+            f"{decimal_seguro(info.get('WinRate')):.1f}%"
+        ]
+    }
+)
 
 st.subheader("📊 Resumen del equipo")
 
@@ -122,9 +309,10 @@ st.dataframe(
 
 st.divider()
 
-# ========================
-# Top 10 jugadores
-# ========================
+
+# ==================================================
+# TOP 10 JUGADORES
+# ==================================================
 
 top_jugadores = (
     participaciones[
@@ -134,16 +322,24 @@ top_jugadores = (
     .size()
     .reset_index(name="Partidos")
     .sort_values(
-        "Partidos",
-        ascending=False
+        ["Partidos", "jugador"],
+        ascending=[False, True]
     )
     .head(10)
+    .rename(
+        columns={
+            "jugador": "Jugador"
+        }
+    )
 )
 
 st.subheader("👥 Top 10 jugadores con más partidos")
 
-st.dataframe(
-    top_jugadores,
-    use_container_width=True,
-    hide_index=True
-)
+if top_jugadores.empty:
+    st.info("No hay participaciones registradas para este equipo.")
+else:
+    st.dataframe(
+        top_jugadores,
+        use_container_width=True,
+        hide_index=True
+    )
