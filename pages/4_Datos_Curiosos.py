@@ -45,13 +45,6 @@ def leer_tabla_completa(tabla):
     return pd.DataFrame(registros)
 
 
-# ==================================================
-# ACTUALIZACION MANUAL
-# ==================================================
-
-if st.button("🔄 Actualizar datos"):
-    st.rerun()
-
 
 # ==================================================
 # CARGA DESDE SUPABASE
