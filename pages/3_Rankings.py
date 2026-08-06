@@ -268,41 +268,153 @@ with tab3:
 # ==================================================
 
 with tab4:
-    st.subheader("Top 20 rachas activas")
+    st.subheader("Rachas activas")
 
     rachas_validas = jugadores[
         jugadores["racha_activa"].notna()
+        & (jugadores["racha_activa"] > 0)
         & (jugadores["tipo_racha_activa"] != "Inactivo")
     ].copy()
 
-    ranking = (
-        rachas_validas
+    rachas_positivas = rachas_validas[
+        rachas_validas["tipo_racha_activa"] == "G"
+    ].copy()
+
+    rachas_negativas = rachas_validas[
+        rachas_validas["tipo_racha_activa"] == "P"
+    ].copy()
+
+    rachas_empates = rachas_validas[
+        rachas_validas["tipo_racha_activa"] == "E"
+    ].copy()
+
+    lider_positivo = (
+        rachas_positivas
         .sort_values(
             ["racha_activa", "WinRate", "PJ", "jugador"],
-            ascending=[False, False, False, True],
-            na_position="last"
+            ascending=[False, False, False, True]
         )
-        [
-            [
-                "jugador",
-                "tipo_racha_activa",
-                "racha_activa",
-                "PJ",
-                "WinRate"
-            ]
-        ]
-        .rename(
-            columns={
-                "jugador": "Jugador",
-                "tipo_racha_activa": "Tipo",
-                "racha_activa": "Racha",
-                "WinRate": "Win Rate %"
-            }
-        )
-        .head(20)
+        .head(1)
     )
 
-    mostrar_ranking(ranking)
+    lider_negativo = (
+        rachas_negativas
+        .sort_values(
+            ["racha_activa", "WinRate", "PJ", "jugador"],
+            ascending=[False, True, False, True]
+        )
+        .head(1)
+    )
+
+    k1, k2, k3, k4 = st.columns(4)
+
+    k1.metric(
+        "Jugadores en racha positiva",
+        len(rachas_positivas)
+    )
+
+    k2.metric(
+        "Jugadores en racha negativa",
+        len(rachas_negativas)
+    )
+
+    k3.metric(
+        "Mayor racha positiva",
+        (
+            int(lider_positivo.iloc[0]["racha_activa"])
+            if not lider_positivo.empty
+            else 0
+        ),
+        help=(
+            f"Jugador: {lider_positivo.iloc[0]['jugador']}"
+            if not lider_positivo.empty
+            else "No hay rachas positivas activas"
+        )
+    )
+
+    k4.metric(
+        "Mayor racha negativa",
+        (
+            int(lider_negativo.iloc[0]["racha_activa"])
+            if not lider_negativo.empty
+            else 0
+        ),
+        help=(
+            f"Jugador: {lider_negativo.iloc[0]['jugador']}"
+            if not lider_negativo.empty
+            else "No hay rachas negativas activas"
+        )
+    )
+
+    if not rachas_empates.empty:
+        st.caption(
+            f"Además, hay {len(rachas_empates)} jugador(es) "
+            "con una racha activa de empates."
+        )
+
+    st.divider()
+
+    col_positivas, col_negativas = st.columns(2)
+
+    with col_positivas:
+        st.subheader("🔥 Rachas positivas")
+
+        ranking_positivo = (
+            rachas_positivas
+            .sort_values(
+                ["racha_activa", "WinRate", "PJ", "jugador"],
+                ascending=[False, False, False, True]
+            )
+            [
+                [
+                    "jugador",
+                    "racha_activa",
+                    "PJ",
+                    "G",
+                    "WinRate"
+                ]
+            ]
+            .rename(
+                columns={
+                    "jugador": "Jugador",
+                    "racha_activa": "Victorias consecutivas",
+                    "WinRate": "Win Rate %"
+                }
+            )
+            .head(20)
+        )
+
+        mostrar_ranking(ranking_positivo)
+
+    with col_negativas:
+        st.subheader("📉 Rachas negativas")
+
+        ranking_negativo = (
+            rachas_negativas
+            .sort_values(
+                ["racha_activa", "WinRate", "PJ", "jugador"],
+                ascending=[False, True, False, True]
+            )
+            [
+                [
+                    "jugador",
+                    "racha_activa",
+                    "PJ",
+                    "P",
+                    "WinRate"
+                ]
+            ]
+            .rename(
+                columns={
+                    "jugador": "Jugador",
+                    "racha_activa": "Derrotas consecutivas",
+                    "WinRate": "Win Rate %"
+                }
+            )
+            .head(20)
+        )
+
+        mostrar_ranking(ranking_negativo)
 
 
 # ==================================================
