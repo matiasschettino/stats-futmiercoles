@@ -806,6 +806,44 @@ if st.button("🔄 Ejecutar Chequeo"):
         st.success(
             "✅ Backup actualizado"
         )
+        
+        jugadores_master_upsert = (
+            jugadores_master_nuevo
+            .astype(object)
+            .where(
+                pd.notnull(
+                    jugadores_master_nuevo
+                ),
+                None
+            )
+        )
+
+        jugadores_master_registros = (
+            jugadores_master_upsert
+            .to_dict("records")
+        )
+
+        for i in range(
+            0,
+            len(jugadores_master_registros),
+            500
+        ):
+
+            lote = jugadores_master_registros[
+                i:i + 500
+            ]
+
+            supabase.table(
+                "jugadores_master"
+            ).upsert(
+                lote,
+                on_conflict="jugador"
+            ).execute()
+
+        st.success(
+            "✅ jugadores_master actualizado"
+        )
+        
         # ==========================================
         # COMPARACION
         # ==========================================
