@@ -757,7 +757,7 @@ if st.button("🔄 Ejecutar Chequeo"):
             f"Jugadores recalculados: {len(jugadores_master_nuevo)}"
         )
 
-                backup_actual = leer_tabla_completa(
+        backup_actual = leer_tabla_completa(
             "jugadores_master"
         )
 
