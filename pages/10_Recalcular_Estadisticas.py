@@ -631,6 +631,37 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
             columnas_finales
         ].copy()
 
+        # Supabase define estas columnas como bigint.
+        # Se convierten explícitamente para evitar valores como "2.0".
+        columnas_enteras = [
+            "PJ",
+            "G",
+            "E",
+            "P",
+            "partidos_equipo_favorito",
+            "pj_mejor_companero",
+            "pj_vs_rival_mas_frecuente",
+            "mejor_racha_ganadora",
+            "racha_activa"
+        ]
+
+        for columna in columnas_enteras:
+            jugadores_master_nuevo[columna] = pd.to_numeric(
+                jugadores_master_nuevo[columna],
+                errors="coerce"
+            ).astype("Int64")
+
+        columnas_decimales = [
+            "WinRate",
+            "wr_mejor_companero"
+        ]
+
+        for columna in columnas_decimales:
+            jugadores_master_nuevo[columna] = pd.to_numeric(
+                jugadores_master_nuevo[columna],
+                errors="coerce"
+            ).round(2)
+
         backup_registros = dataframe_a_registros(jugadores_master_df)
         jugadores_master_registros = dataframe_a_registros(
             jugadores_master_nuevo
@@ -791,7 +822,7 @@ if st.session_state.get("chequeo_realizado", False):
     st.divider()
     st.subheader("⚙️ Acciones sobre Supabase")
     st.info(
-        "Primero generá el backup. Después se habilitará la actualización."
+        "Podés generar el backup y actualizar jugadores_master de forma independiente."
     )
 
     col_backup, col_actualizar = st.columns(2)
@@ -829,16 +860,10 @@ if st.session_state.get("chequeo_realizado", False):
                 st.exception(error)
 
     with col_actualizar:
-        actualizar_deshabilitado = not st.session_state.get(
-            "backup_generado",
-            False
-        )
-
         if st.button(
             "🚀 Actualizar jugadores_master",
             key="btn_actualizar_jugadores_master",
-            use_container_width=True,
-            disabled=actualizar_deshabilitado
+            use_container_width=True
         ):
             try:
                 registros = st.session_state[
@@ -862,9 +887,4 @@ if st.session_state.get("chequeo_realizado", False):
             except Exception as error:
                 st.error("No se pudo actualizar jugadores_master.")
                 st.exception(error)
-
-    if not st.session_state.get("backup_generado", False):
-        st.caption(
-            "El botón de actualización se habilita después de generar el backup."
-        )
 
