@@ -120,6 +120,9 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         partidos_df = leer_tabla_completa("partidos")
         participaciones_df = leer_tabla_completa("participaciones")
         jugadores_master_df = leer_tabla_completa("jugadores_master")
+        estadisticas_parejas_actual_df = leer_tabla_completa(
+            "estadisticas_parejas"
+        )
 
         if partidos_df.empty:
             raise ValueError("La tabla partidos está vacía.")
@@ -131,6 +134,10 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         st.write(f"Partidos: {len(partidos_df)}")
         st.write(f"Participaciones: {len(participaciones_df)}")
         st.write(f"Jugadores Master: {len(jugadores_master_df)}")
+        st.write(
+            "Estadísticas de parejas actuales: "
+            f"{len(estadisticas_parejas_actual_df)}"
+        )
 
         # ==========================================
         # RESULTADO LOCAL Y RESULTADO POR JUGADOR
@@ -662,23 +669,70 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
                 errors="coerce"
             ).round(2)
 
+        # Dataset final de estadísticas de parejas.
+        columnas_parejas = [
+            "jugador_1",
+            "jugador_2",
+            "E",
+            "G",
+            "PJ",
+            "WinRate",
+            "P"
+        ]
+
+        estadisticas_parejas_nuevo = estadisticas_parejas[
+            columnas_parejas
+        ].copy()
+
+        for columna in ["E", "G", "PJ", "P"]:
+            estadisticas_parejas_nuevo[columna] = pd.to_numeric(
+                estadisticas_parejas_nuevo[columna],
+                errors="coerce"
+            ).astype("Int64")
+
+        estadisticas_parejas_nuevo["WinRate"] = pd.to_numeric(
+            estadisticas_parejas_nuevo["WinRate"],
+            errors="coerce"
+        ).round(2)
+
         backup_registros = dataframe_a_registros(jugadores_master_df)
         jugadores_master_registros = dataframe_a_registros(
             jugadores_master_nuevo
+        )
+        backup_parejas_registros = dataframe_a_registros(
+            estadisticas_parejas_actual_df
+        )
+        estadisticas_parejas_registros = dataframe_a_registros(
+            estadisticas_parejas_nuevo
         )
 
         st.session_state["backup_registros"] = backup_registros
         st.session_state[
             "jugadores_master_registros"
         ] = jugadores_master_registros
+        st.session_state[
+            "backup_parejas_registros"
+        ] = backup_parejas_registros
+        st.session_state[
+            "estadisticas_parejas_registros"
+        ] = estadisticas_parejas_registros
         st.session_state["chequeo_realizado"] = True
         st.session_state["backup_generado"] = False
+        st.session_state["backup_parejas_generado"] = False
 
         st.write(
             f"Jugadores recalculados: {len(jugadores_master_nuevo)}"
         )
         st.write(
-            f"Backup preparado: {len(backup_registros)} registros"
+            f"Backup jugadores preparado: {len(backup_registros)} registros"
+        )
+        st.write(
+            "Parejas recalculadas: "
+            f"{len(estadisticas_parejas_registros)}"
+        )
+        st.write(
+            "Backup parejas preparado: "
+            f"{len(backup_parejas_registros)} registros"
         )
 
         # ==========================================
@@ -886,5 +940,79 @@ if st.session_state.get("chequeo_realizado", False):
 
             except Exception as error:
                 st.error("No se pudo actualizar jugadores_master.")
+                st.exception(error)
+
+    st.divider()
+    st.subheader("🤝 Acciones sobre estadísticas de parejas")
+    st.info(
+        "El backup de parejas y la actualización son acciones independientes."
+    )
+
+    col_backup_parejas, col_actualizar_parejas = st.columns(2)
+
+    with col_backup_parejas:
+        if st.button(
+            "💾 Backup estadísticas de parejas",
+            key="btn_backup_estadisticas_parejas",
+            use_container_width=True
+        ):
+            try:
+                backup_parejas = st.session_state[
+                    "backup_parejas_registros"
+                ]
+
+                (
+                    supabase
+                    .table("estadisticas_parejas_backup")
+                    .delete()
+                    .neq("jugador_1", "")
+                    .execute()
+                )
+
+                insertar_en_lotes(
+                    "estadisticas_parejas_backup",
+                    backup_parejas
+                )
+
+                st.session_state["backup_parejas_generado"] = True
+
+                st.success(
+                    "✅ Backup de parejas actualizado con "
+                    f"{len(backup_parejas)} registros."
+                )
+
+            except Exception as error:
+                st.error("No se pudo generar el backup de parejas.")
+                st.exception(error)
+
+    with col_actualizar_parejas:
+        if st.button(
+            "🚀 Actualizar estadísticas de parejas",
+            key="btn_actualizar_estadisticas_parejas",
+            use_container_width=True
+        ):
+            try:
+                registros_parejas = st.session_state[
+                    "estadisticas_parejas_registros"
+                ]
+
+                st.write(
+                    "Parejas a actualizar: "
+                    f"{len(registros_parejas)}"
+                )
+
+                upsert_en_lotes(
+                    "estadisticas_parejas",
+                    registros_parejas,
+                    "jugador_1,jugador_2"
+                )
+
+                st.success(
+                    "✅ estadisticas_parejas actualizada con "
+                    f"{len(registros_parejas)} registros."
+                )
+
+            except Exception as error:
+                st.error("No se pudo actualizar estadisticas_parejas.")
                 st.exception(error)
 
