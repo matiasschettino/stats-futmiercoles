@@ -761,6 +761,20 @@ if st.button("🔄 Ejecutar Chequeo"):
             "jugadores_master"
         )
 
+        backup_registros = (
+            backup_actual
+            .fillna("")
+            .to_dict("records")
+        )
+
+        st.write(
+            f"Registros backup: {len(backup_registros)}"
+        )
+
+        st.write(
+            backup_actual.head(5)
+        )
+
         st.write(
             f"Backup preparado: {len(backup_actual)} registros"
         )
