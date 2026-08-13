@@ -518,47 +518,105 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
 
         mejores_rachas = []
 
-        for jugador, grupo in partidos_ordenados.groupby("jugador"):
-            mejor_racha = 0
-            mejor_desde = None
-            mejor_hasta = None
+for jugador, grupo in partidos_ordenados.groupby("jugador"):
+
+    # RACHA GANADORA
+    mejor_racha = 0
+    mejor_desde = None
+    mejor_hasta = None
+
+    racha_actual = 0
+    fecha_inicio_actual = None
+
+    # RACHA PERDEDORA
+    peor_racha = 0
+    peor_desde = None
+    peor_hasta = None
+
+    racha_perdedora_actual = 0
+    fecha_inicio_perdedora = None
+
+    for _, fila in grupo.iterrows():
+
+        resultado = fila["resultado_jugador"]
+        fecha = fila["fecha"]
+
+        # ========================
+        # RACHA GANADORA
+        # ========================
+
+        if resultado == "G":
+
+            if racha_actual == 0:
+                fecha_inicio_actual = fecha
+
+            racha_actual += 1
+
+            if racha_actual > mejor_racha:
+                mejor_racha = racha_actual
+                mejor_desde = fecha_inicio_actual
+                mejor_hasta = fecha
+
+        else:
+
             racha_actual = 0
             fecha_inicio_actual = None
 
-            for _, fila in grupo.iterrows():
-                resultado = fila["resultado_jugador"]
-                fecha = fila["fecha"]
+        # ========================
+        # RACHA PERDEDORA
+        # ========================
 
-                if resultado == "G":
-                    if racha_actual == 0:
-                        fecha_inicio_actual = fecha
+        if resultado == "P":
 
-                    racha_actual += 1
+            if racha_perdedora_actual == 0:
+                fecha_inicio_perdedora = fecha
 
-                    if racha_actual > mejor_racha:
-                        mejor_racha = racha_actual
-                        mejor_desde = fecha_inicio_actual
-                        mejor_hasta = fecha
-                else:
-                    racha_actual = 0
-                    fecha_inicio_actual = None
+            racha_perdedora_actual += 1
 
-            mejores_rachas.append(
-                {
-                    "jugador": jugador,
-                    "mejor_racha_ganadora": mejor_racha,
-                    "racha_desde": (
-                        mejor_desde.date()
-                        if pd.notnull(mejor_desde)
-                        else None
-                    ),
-                    "racha_hasta": (
-                        mejor_hasta.date()
-                        if pd.notnull(mejor_hasta)
-                        else None
-                    )
-                }
+            if racha_perdedora_actual > peor_racha:
+
+                peor_racha = racha_perdedora_actual
+                peor_desde = fecha_inicio_perdedora
+                peor_hasta = fecha
+
+        else:
+
+            racha_perdedora_actual = 0
+            fecha_inicio_perdedora = None
+
+    mejores_rachas.append(
+        {
+            "jugador": jugador,
+
+            "mejor_racha_ganadora": mejor_racha,
+
+            "racha_desde": (
+                mejor_desde.date()
+                if pd.notnull(mejor_desde)
+                else None
+            ),
+
+            "racha_hasta": (
+                mejor_hasta.date()
+                if pd.notnull(mejor_hasta)
+                else None
+            ),
+
+            "peor_racha_perdedora": peor_racha,
+
+            "peor_racha_desde": (
+                peor_desde.date()
+                if pd.notnull(peor_desde)
+                else None
+            ),
+
+            "peor_racha_hasta": (
+                peor_hasta.date()
+                if pd.notnull(peor_hasta)
+                else None
             )
+        }
+    )
 
         mejores_rachas_df = pd.DataFrame(mejores_rachas)
 
@@ -894,7 +952,10 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
             "racha_desde",
             "racha_hasta",
             "racha_activa",
-            "tipo_racha_activa"
+            "tipo_racha_activa",
+            "peor_racha_perdedora",
+            "peor_racha_desde",
+            "peor_racha_hasta",
         ]
 
         jugadores_master_nuevo = estadisticas_jugador[
@@ -912,7 +973,8 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
             "pj_mejor_companero",
             "pj_vs_rival_mas_frecuente",
             "mejor_racha_ganadora",
-            "racha_activa"
+            "racha_activa",
+            "peor_racha_perdedora",
         ]
 
         for columna in columnas_enteras:
