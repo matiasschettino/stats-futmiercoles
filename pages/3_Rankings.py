@@ -44,15 +44,32 @@ def leer_tabla_completa(tabla):
     return pd.DataFrame(registros)
 
 
-def mostrar_ranking(dataframe):
+def mostrar_ranking(dataframe, alto=420):
     if dataframe.empty:
         st.info("No hay registros que cumplan los requisitos del ranking.")
     else:
         st.dataframe(
             dataframe,
             use_container_width=True,
-            hide_index=True
+            hide_index=True,
+            height=alto
         )
+
+
+def formatear_fechas(dataframe, columnas):
+    dataframe = dataframe.copy()
+
+    for columna in columnas:
+        if columna in dataframe.columns:
+            dataframe[columna] = (
+                pd.to_datetime(
+                    dataframe[columna],
+                    errors="coerce"
+                )
+                .dt.strftime("%d/%m/%Y")
+            )
+
+    return dataframe
 
 
 # ==================================================
@@ -95,7 +112,13 @@ columnas_jugadores = [
     "P",
     "WinRate",
     "racha_activa",
-    "tipo_racha_activa"
+    "tipo_racha_activa",
+    "mejor_racha_ganadora",
+    "racha_desde",
+    "racha_hasta",
+    "peor_racha_perdedora",
+    "peor_racha_desde",
+    "peor_racha_hasta"
 ]
 
 columnas_equipos = [
@@ -137,10 +160,18 @@ for nombre_tabla, dataframe, columnas_requeridas in [
 
 
 # ==================================================
-# NORMALIZACION NUMERICA
+# NORMALIZACION NUMERICA Y FECHAS
 # ==================================================
 
-for columna in ["PJ", "G", "E", "P", "racha_activa"]:
+for columna in [
+    "PJ",
+    "G",
+    "E",
+    "P",
+    "racha_activa",
+    "mejor_racha_ganadora",
+    "peor_racha_perdedora"
+]:
     jugadores[columna] = pd.to_numeric(
         jugadores[columna],
         errors="coerce"
@@ -150,6 +181,17 @@ jugadores["WinRate"] = pd.to_numeric(
     jugadores["WinRate"],
     errors="coerce"
 )
+
+for columna in [
+    "racha_desde",
+    "racha_hasta",
+    "peor_racha_desde",
+    "peor_racha_hasta"
+]:
+    jugadores[columna] = pd.to_datetime(
+        jugadores[columna],
+        errors="coerce"
+    )
 
 for columna in ["PJ", "G", "E", "P", "WinRate"]:
     equipos[columna] = pd.to_numeric(
@@ -171,12 +213,13 @@ parejas = parejas.dropna(subset=["jugador_1", "jugador_2"]).copy()
 # PESTANAS
 # ==================================================
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
     [
         "🏃 Más partidos",
         "🥇 Más victorias",
         "📈 Mejor Win Rate",
-        "🔥 Rachas activas",
+        "🔥 Rachas actuales",
+        "🏆 Rachas históricas",
         "⚽ Equipos",
         "🤝 Mejores duplas"
     ]
@@ -264,11 +307,11 @@ with tab3:
 
 
 # ==================================================
-# RACHAS ACTIVAS
+# RACHAS ACTUALES
 # ==================================================
 
 with tab4:
-    st.subheader("Rachas activas")
+    st.subheader("🔥 Rachas actuales")
 
     rachas_validas = jugadores[
         jugadores["racha_activa"].notna()
@@ -319,7 +362,7 @@ with tab4:
     )
 
     k3.metric(
-        "Mayor racha positiva",
+        "Mayor racha positiva actual",
         (
             int(lider_positivo.iloc[0]["racha_activa"])
             if not lider_positivo.empty
@@ -333,7 +376,7 @@ with tab4:
     )
 
     k4.metric(
-        "Mayor racha negativa",
+        "Mayor racha negativa actual",
         (
             int(lider_negativo.iloc[0]["racha_activa"])
             if not lider_negativo.empty
@@ -354,74 +397,196 @@ with tab4:
 
     st.divider()
 
-    col_positivas, col_negativas = st.columns(2)
+    st.subheader("🔥 Rachas positivas actuales")
 
-    with col_positivas:
-        st.subheader("🔥 Rachas positivas")
-
-        ranking_positivo = (
-            rachas_positivas
-            .sort_values(
-                ["racha_activa", "WinRate", "PJ", "jugador"],
-                ascending=[False, False, False, True]
-            )
+    ranking_positivo = (
+        rachas_positivas
+        .sort_values(
+            ["racha_activa", "WinRate", "PJ", "jugador"],
+            ascending=[False, False, False, True]
+        )
+        [
             [
-                [
-                    "jugador",
-                    "racha_activa",
-                    "PJ",
-                    "G",
-                    "WinRate"
-                ]
+                "jugador",
+                "racha_activa",
+                "PJ",
+                "G",
+                "WinRate"
             ]
-            .rename(
-                columns={
-                    "jugador": "Jugador",
-                    "racha_activa": "Victorias consecutivas",
-                    "WinRate": "Win Rate %"
-                }
-            )
-            .head(20)
+        ]
+        .rename(
+            columns={
+                "jugador": "Jugador",
+                "racha_activa": "Victorias consecutivas actuales",
+                "WinRate": "Win Rate %"
+            }
+        )
+        .head(20)
+    )
+
+    mostrar_ranking(ranking_positivo, alto=360)
+
+    st.subheader("📉 Rachas negativas actuales")
+
+    ranking_negativo = (
+        rachas_negativas
+        .sort_values(
+            ["racha_activa", "WinRate", "PJ", "jugador"],
+            ascending=[False, True, False, True]
+        )
+        [
+            [
+                "jugador",
+                "racha_activa",
+                "PJ",
+                "P",
+                "WinRate"
+            ]
+        ]
+        .rename(
+            columns={
+                "jugador": "Jugador",
+                "racha_activa": "Derrotas consecutivas actuales",
+                "WinRate": "Win Rate %"
+            }
+        )
+        .head(20)
+    )
+
+    mostrar_ranking(ranking_negativo, alto=360)
+
+
+# ==================================================
+# RACHAS HISTORICAS
+# ==================================================
+
+with tab5:
+    st.subheader("🏆 Rachas históricas")
+    st.caption(
+        "Ranking histórico de las mejores series positivas y negativas, "
+        "incluyendo el período exacto en el que ocurrieron."
+    )
+
+    mejores_rachas_historicas = jugadores[
+        jugadores["mejor_racha_ganadora"].notna()
+        & (jugadores["mejor_racha_ganadora"] > 0)
+    ].copy()
+
+    ranking_mejores_rachas = (
+        mejores_rachas_historicas
+        .sort_values(
+            [
+                "mejor_racha_ganadora",
+                "WinRate",
+                "PJ",
+                "jugador"
+            ],
+            ascending=[False, False, False, True]
+        )
+        [
+            [
+                "jugador",
+                "mejor_racha_ganadora",
+                "racha_desde",
+                "racha_hasta",
+                "PJ",
+                "G",
+                "WinRate"
+            ]
+        ]
+        .head(10)
+        .rename(
+            columns={
+                "jugador": "Jugador",
+                "mejor_racha_ganadora": "Victorias consecutivas",
+                "racha_desde": "Desde",
+                "racha_hasta": "Hasta",
+                "PJ": "Partidos totales",
+                "G": "Victorias totales",
+                "WinRate": "Win Rate %"
+            }
+        )
+    )
+
+    ranking_mejores_rachas = formatear_fechas(
+        ranking_mejores_rachas,
+        ["Desde", "Hasta"]
+    )
+
+    if not ranking_mejores_rachas.empty:
+        ranking_mejores_rachas.insert(
+            0,
+            "#",
+            range(1, len(ranking_mejores_rachas) + 1)
         )
 
-        mostrar_ranking(ranking_positivo)
+    st.subheader("🏆 Top 10 mejores rachas históricas positivas")
+    mostrar_ranking(ranking_mejores_rachas, alto=420)
 
-    with col_negativas:
-        st.subheader("📉 Rachas negativas")
+    st.divider()
 
-        ranking_negativo = (
-            rachas_negativas
-            .sort_values(
-                ["racha_activa", "WinRate", "PJ", "jugador"],
-                ascending=[False, True, False, True]
-            )
+    peores_rachas_historicas = jugadores[
+        jugadores["peor_racha_perdedora"].notna()
+        & (jugadores["peor_racha_perdedora"] > 0)
+    ].copy()
+
+    ranking_peores_rachas = (
+        peores_rachas_historicas
+        .sort_values(
             [
-                [
-                    "jugador",
-                    "racha_activa",
-                    "PJ",
-                    "P",
-                    "WinRate"
-                ]
+                "peor_racha_perdedora",
+                "WinRate",
+                "PJ",
+                "jugador"
+            ],
+            ascending=[False, True, False, True]
+        )
+        [
+            [
+                "jugador",
+                "peor_racha_perdedora",
+                "peor_racha_desde",
+                "peor_racha_hasta",
+                "PJ",
+                "P",
+                "WinRate"
             ]
-            .rename(
-                columns={
-                    "jugador": "Jugador",
-                    "racha_activa": "Derrotas consecutivas",
-                    "WinRate": "Win Rate %"
-                }
-            )
-            .head(20)
+        ]
+        .head(10)
+        .rename(
+            columns={
+                "jugador": "Jugador",
+                "peor_racha_perdedora": "Derrotas consecutivas",
+                "peor_racha_desde": "Desde",
+                "peor_racha_hasta": "Hasta",
+                "PJ": "Partidos totales",
+                "P": "Derrotas totales",
+                "WinRate": "Win Rate %"
+            }
+        )
+    )
+
+    ranking_peores_rachas = formatear_fechas(
+        ranking_peores_rachas,
+        ["Desde", "Hasta"]
+    )
+
+    if not ranking_peores_rachas.empty:
+        ranking_peores_rachas.insert(
+            0,
+            "#",
+            range(1, len(ranking_peores_rachas) + 1)
         )
 
-        mostrar_ranking(ranking_negativo)
+    st.subheader("📉 Top 10 mejores rachas históricas negativas")
+    mostrar_ranking(ranking_peores_rachas, alto=420)
 
 
 # ==================================================
 # EQUIPOS MAS GANADORES
 # ==================================================
 
-with tab5:
+with tab6:
     st.subheader("Equipos más ganadores")
 
     ranking = (
@@ -446,7 +611,7 @@ with tab5:
 # MEJORES DUPLAS
 # ==================================================
 
-with tab6:
+with tab7:
     st.subheader(
         "Mejores duplas históricas (mínimo 50 partidos juntos)"
     )
