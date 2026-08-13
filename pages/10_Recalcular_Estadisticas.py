@@ -95,8 +95,23 @@ def valor_json(valor):
 
     if hasattr(valor, "item"):
         try:
-            return valor.item()
+            valor = valor.item()
         except (ValueError, AttributeError):
+            pass
+
+    # Evita errores de Supabase/Postgres en columnas bigint.
+    # Cuando pandas lee una columna entera con nulos, puede devolver 1.0.
+    # Postgres bigint no acepta valores con decimal como "1.0".
+    if isinstance(valor, float) and valor.is_integer():
+        return int(valor)
+
+    if isinstance(valor, str):
+        texto = valor.strip()
+        try:
+            numero = float(texto)
+            if texto.endswith(".0") and numero.is_integer():
+                return int(numero)
+        except ValueError:
             pass
 
     return valor
@@ -116,6 +131,19 @@ def dataframe_a_registros(df):
     return registros
 
 
+def convertir_columnas_enteras(df, columnas):
+    df = df.copy()
+
+    for columna in columnas:
+        if columna in df.columns:
+            df[columna] = pd.to_numeric(
+                df[columna],
+                errors="coerce"
+            ).astype("Int64")
+
+    return df
+
+
 def insertar_en_lotes(tabla, registros, lote=500):
     for inicio in range(0, len(registros), lote):
         bloque = registros[inicio:inicio + lote]
@@ -131,6 +159,36 @@ def upsert_en_lotes(tabla, registros, conflicto, lote=500):
             .upsert(bloque, on_conflict=conflicto)
             .execute()
         )
+
+
+COLUMNAS_ENTERAS_JUGADORES = [
+    "PJ",
+    "G",
+    "E",
+    "P",
+    "partidos_equipo_favorito",
+    "pj_mejor_companero",
+    "pj_vs_rival_mas_frecuente",
+    "mejor_racha_ganadora",
+    "peor_racha_perdedora",
+    "racha_activa"
+]
+
+COLUMNAS_ENTERAS_PAREJAS = [
+    "E",
+    "G",
+    "PJ",
+    "P"
+]
+
+COLUMNAS_ENTERAS_EQUIPOS = [
+    "PJ",
+    "G",
+    "E",
+    "P",
+    "pj_jugador_mas_presente",
+    "pj_mejor_jugador"
+]
 
 
 # ==================================================
@@ -941,20 +999,7 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
 
         # Supabase define estas columnas como bigint.
         # Se convierten explícitamente para evitar valores como "2.0".
-        columnas_enteras = [
-            "PJ",
-            "G",
-            "E",
-            "P",
-            "partidos_equipo_favorito",
-            "pj_mejor_companero",
-            "pj_vs_rival_mas_frecuente",
-            "mejor_racha_ganadora",
-            "peor_racha_perdedora",
-            "racha_activa"
-        ]
-
-        for columna in columnas_enteras:
+        for columna in COLUMNAS_ENTERAS_JUGADORES:
             jugadores_master_nuevo[columna] = pd.to_numeric(
                 jugadores_master_nuevo[columna],
                 errors="coerce"
@@ -996,6 +1041,19 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
             estadisticas_parejas_nuevo["WinRate"],
             errors="coerce"
         ).round(2)
+
+        jugadores_master_df = convertir_columnas_enteras(
+            jugadores_master_df,
+            COLUMNAS_ENTERAS_JUGADORES
+        )
+        estadisticas_parejas_actual_df = convertir_columnas_enteras(
+            estadisticas_parejas_actual_df,
+            COLUMNAS_ENTERAS_PAREJAS
+        )
+        equipos_master_actual_df = convertir_columnas_enteras(
+            equipos_master_actual_df,
+            COLUMNAS_ENTERAS_EQUIPOS
+        )
 
         backup_registros = dataframe_a_registros(jugadores_master_df)
         jugadores_master_registros = dataframe_a_registros(
