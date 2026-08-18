@@ -288,7 +288,7 @@ with col_equipos:
             ascending=[False, False, False, True]
         )
         [["equipo", "G", "PJ", "WinRate"]]
-        .head(10)
+        .head(5)
         .rename(
             columns={
                 "equipo": "Equipo",
