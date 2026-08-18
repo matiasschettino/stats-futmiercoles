@@ -251,57 +251,56 @@ st.divider()
 # RANKINGS PRINCIPALES
 # ==================================================
 
-col_jugadores, col_equipos = st.columns(2)
+st.subheader("🏆 Top 10 jugadores con más partidos")
 
-with col_jugadores:
-    st.subheader("🏆 Top 10 jugadores con más partidos")
-
-    top_jugadores = (
-        jugadores
-        .sort_values(
-            ["PJ", "G", "jugador"],
-            ascending=[False, False, True]
-        )
-        [["jugador", "PJ", "WinRate"]]
-        .head(10)
-        .rename(
-            columns={
-                "jugador": "Jugador",
-                "WinRate": "Win Rate %"
-            }
-        )
+top_jugadores = (
+    jugadores
+    .sort_values(
+        ["PJ", "G", "jugador"],
+        ascending=[False, False, True]
     )
-
-    st.dataframe(
-        top_jugadores,
-        use_container_width=True,
-        hide_index=True
+    [["jugador", "PJ", "WinRate"]]
+    .head(10)
+    .rename(
+        columns={
+            "jugador": "Jugador",
+            "WinRate": "Win Rate %"
+        }
     )
+)
 
-with col_equipos:
-    st.subheader("⚽ Equipos más ganadores")
+st.dataframe(
+    top_jugadores,
+    use_container_width=True,
+    hide_index=True
+)
 
-    top_equipos = (
-        equipos
-        .sort_values(
-            ["G", "PJ", "WinRate", "equipo"],
-            ascending=[False, False, False, True]
-        )
-        [["equipo", "G", "PJ", "WinRate"]]
-        .head(5)
-        .rename(
-            columns={
-                "equipo": "Equipo",
-                "WinRate": "Win Rate %"
-            }
-        )
+st.divider()
+
+st.subheader("⚽ Top 5 equipos más ganadores")
+
+top_equipos = (
+    equipos
+    .sort_values(
+        ["G", "PJ", "WinRate", "equipo"],
+        ascending=[False, False, False, True]
     )
-
-    st.dataframe(
-        top_equipos,
-        use_container_width=True,
-        hide_index=True
+    [["equipo", "G", "PJ", "WinRate"]]
+    .head(5)
+    .rename(
+        columns={
+            "equipo": "Equipo",
+            "WinRate": "Win Rate %"
+        }
     )
+)
+
+st.dataframe(
+    top_equipos,
+    use_container_width=True,
+    hide_index=True,
+    height=250
+)
 
 st.divider()
 
