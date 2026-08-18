@@ -41,7 +41,10 @@ valores_iniciales = {
     "estadisticas_parejas_registros": None,
     "backup_equipos_registros": None,
     "equipos_master_registros": None,
-    "backup_equipos_generado": False
+    "backup_equipos_generado": False,
+    "backup_rivales_registros": None,
+    "estadisticas_rivales_registros": None,
+    "backup_rivales_generado": False
 }
 
 for clave, valor_inicial in valores_iniciales.items():
@@ -190,6 +193,13 @@ COLUMNAS_ENTERAS_EQUIPOS = [
     "pj_mejor_jugador"
 ]
 
+COLUMNAS_ENTERAS_RIVALES = [
+    "PJ",
+    "G_jugador_1",
+    "G_jugador_2",
+    "E"
+]
+
 
 # ==================================================
 # CHEQUEO Y RECALCULO
@@ -205,6 +215,9 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         )
         equipos_master_actual_df = leer_tabla_completa(
             "equipos_master"
+        )
+        estadisticas_rivales_actual_df = leer_tabla_completa(
+            "estadisticas_rivales"
         )
 
         if partidos_df.empty:
@@ -223,6 +236,10 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         )
         st.write(
             f"Equipos Master actuales: {len(equipos_master_actual_df)}"
+        )
+        st.write(
+            "Estadísticas de rivales actuales: "
+            f"{len(estadisticas_rivales_actual_df)}"
         )
 
         # ==========================================
@@ -555,6 +572,129 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
             on="jugador",
             how="left"
         )
+
+        # ==========================================
+        # ESTADISTICAS DE RIVALES DIRECTOS
+        # ==========================================
+
+        enfrentamientos_directos = []
+
+        for _, grupo in participaciones_validas.groupby("partido_id"):
+            equipos_partido = grupo["equipo"].dropna().unique()
+
+            if len(equipos_partido) != 2:
+                continue
+
+            equipo_1 = equipos_partido[0]
+            equipo_2 = equipos_partido[1]
+
+            jugadores_equipo_1 = grupo[
+                grupo["equipo"] == equipo_1
+            ][
+                [
+                    "jugador",
+                    "resultado_jugador"
+                ]
+            ].dropna()
+
+            jugadores_equipo_2 = grupo[
+                grupo["equipo"] == equipo_2
+            ][
+                [
+                    "jugador",
+                    "resultado_jugador"
+                ]
+            ].dropna()
+
+            for _, fila_1 in jugadores_equipo_1.iterrows():
+                for _, fila_2 in jugadores_equipo_2.iterrows():
+                    jugador_a = fila_1["jugador"]
+                    jugador_b = fila_2["jugador"]
+
+                    resultado_a = fila_1["resultado_jugador"]
+                    resultado_b = fila_2["resultado_jugador"]
+
+                    jugador_1, jugador_2 = sorted(
+                        [
+                            jugador_a,
+                            jugador_b
+                        ]
+                    )
+
+                    if jugador_a == jugador_1:
+                        resultado_jugador_1 = resultado_a
+                        resultado_jugador_2 = resultado_b
+                    else:
+                        resultado_jugador_1 = resultado_b
+                        resultado_jugador_2 = resultado_a
+
+                    enfrentamientos_directos.append(
+                        {
+                            "jugador_1": jugador_1,
+                            "jugador_2": jugador_2,
+                            "resultado_jugador_1": resultado_jugador_1,
+                            "resultado_jugador_2": resultado_jugador_2
+                        }
+                    )
+
+        if enfrentamientos_directos:
+            enfrentamientos_directos_df = pd.DataFrame(
+                enfrentamientos_directos
+            )
+
+            estadisticas_rivales = (
+                enfrentamientos_directos_df
+                .groupby(
+                    [
+                        "jugador_1",
+                        "jugador_2"
+                    ]
+                )
+                .agg(
+                    PJ=(
+                        "resultado_jugador_1",
+                        "size"
+                    ),
+                    G_jugador_1=(
+                        "resultado_jugador_1",
+                        lambda resultados: (resultados == "G").sum()
+                    ),
+                    G_jugador_2=(
+                        "resultado_jugador_2",
+                        lambda resultados: (resultados == "G").sum()
+                    ),
+                    E=(
+                        "resultado_jugador_1",
+                        lambda resultados: (resultados == "E").sum()
+                    )
+                )
+                .reset_index()
+            )
+
+            estadisticas_rivales["WinRate_jugador_1"] = (
+                estadisticas_rivales["G_jugador_1"]
+                / estadisticas_rivales["PJ"].replace(0, pd.NA)
+                * 100
+            ).round(2).fillna(0)
+
+            estadisticas_rivales["WinRate_jugador_2"] = (
+                estadisticas_rivales["G_jugador_2"]
+                / estadisticas_rivales["PJ"].replace(0, pd.NA)
+                * 100
+            ).round(2).fillna(0)
+        else:
+            estadisticas_rivales = pd.DataFrame(
+                columns=[
+                    "jugador_1",
+                    "jugador_2",
+                    "PJ",
+                    "G_jugador_1",
+                    "G_jugador_2",
+                    "E",
+                    "WinRate_jugador_1",
+                    "WinRate_jugador_2"
+                ]
+            )
 
         # ==========================================
         # PARTIDOS ORDENADOS Y RACHAS HISTORICAS
@@ -1042,6 +1182,34 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
             errors="coerce"
         ).round(2)
 
+        # Dataset final de estadísticas de rivales.
+        columnas_rivales = [
+            "jugador_1",
+            "jugador_2",
+            "PJ",
+            "G_jugador_1",
+            "G_jugador_2",
+            "E",
+            "WinRate_jugador_1",
+            "WinRate_jugador_2"
+        ]
+
+        estadisticas_rivales_nuevo = estadisticas_rivales[
+            columnas_rivales
+        ].copy()
+
+        for columna in COLUMNAS_ENTERAS_RIVALES:
+            estadisticas_rivales_nuevo[columna] = pd.to_numeric(
+                estadisticas_rivales_nuevo[columna],
+                errors="coerce"
+            ).astype("Int64")
+
+        for columna in ["WinRate_jugador_1", "WinRate_jugador_2"]:
+            estadisticas_rivales_nuevo[columna] = pd.to_numeric(
+                estadisticas_rivales_nuevo[columna],
+                errors="coerce"
+            ).round(2)
+
         jugadores_master_df = convertir_columnas_enteras(
             jugadores_master_df,
             COLUMNAS_ENTERAS_JUGADORES
@@ -1053,6 +1221,10 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         equipos_master_actual_df = convertir_columnas_enteras(
             equipos_master_actual_df,
             COLUMNAS_ENTERAS_EQUIPOS
+        )
+        estadisticas_rivales_actual_df = convertir_columnas_enteras(
+            estadisticas_rivales_actual_df,
+            COLUMNAS_ENTERAS_RIVALES
         )
 
         backup_registros = dataframe_a_registros(jugadores_master_df)
@@ -1071,6 +1243,12 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         equipos_master_registros = dataframe_a_registros(
             equipos_master_nuevo
         )
+        backup_rivales_registros = dataframe_a_registros(
+            estadisticas_rivales_actual_df
+        )
+        estadisticas_rivales_registros = dataframe_a_registros(
+            estadisticas_rivales_nuevo
+        )
 
         st.session_state["backup_registros"] = backup_registros
         st.session_state[
@@ -1088,10 +1266,17 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         st.session_state[
             "equipos_master_registros"
         ] = equipos_master_registros
+        st.session_state[
+            "backup_rivales_registros"
+        ] = backup_rivales_registros
+        st.session_state[
+            "estadisticas_rivales_registros"
+        ] = estadisticas_rivales_registros
         st.session_state["chequeo_realizado"] = True
         st.session_state["backup_generado"] = False
         st.session_state["backup_parejas_generado"] = False
         st.session_state["backup_equipos_generado"] = False
+        st.session_state["backup_rivales_generado"] = False
 
         st.write(
             f"Jugadores recalculados: {len(jugadores_master_nuevo)}"
@@ -1113,6 +1298,14 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         st.write(
             "Backup equipos preparado: "
             f"{len(backup_equipos_registros)} registros"
+        )
+        st.write(
+            "Rivales recalculados: "
+            f"{len(estadisticas_rivales_registros)}"
+        )
+        st.write(
+            "Backup rivales preparado: "
+            f"{len(backup_rivales_registros)} registros"
         )
 
         # ==========================================
@@ -1258,6 +1451,15 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         st.subheader("🛡️ Vista previa equipos_master")
         st.dataframe(
             equipos_master_nuevo
+            .sort_values("PJ", ascending=False)
+            .head(30),
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.subheader("⚔️ Vista previa estadisticas_rivales")
+        st.dataframe(
+            estadisticas_rivales_nuevo
             .sort_values("PJ", ascending=False)
             .head(30),
             use_container_width=True,
@@ -1527,6 +1729,96 @@ if st.session_state.get("chequeo_realizado", False):
                 st.exception(error)
 
     st.divider()
+    st.subheader("⚔️ Acciones sobre estadísticas de rivales")
+
+    datos_rivales_listos = (
+        st.session_state.get("backup_rivales_registros") is not None
+        and st.session_state.get("estadisticas_rivales_registros") is not None
+    )
+
+    if not datos_rivales_listos:
+        st.warning(
+            "Los datos de rivales todavía no están preparados. "
+            "Volvé a ejecutar el chequeo antes de usar estos botones."
+        )
+
+    st.info(
+        "El backup de rivales y la actualización son acciones independientes."
+    )
+
+    col_backup_rivales, col_actualizar_rivales = st.columns(2)
+
+    with col_backup_rivales:
+        if st.button(
+            "💾 Backup estadísticas de rivales",
+            key="btn_backup_estadisticas_rivales",
+            use_container_width=True,
+            disabled=not datos_rivales_listos
+        ):
+            try:
+                backup_rivales = st.session_state.get(
+                    "backup_rivales_registros",
+                    []
+                )
+
+                (
+                    supabase
+                    .table("estadisticas_rivales_backup")
+                    .delete()
+                    .neq("jugador_1", "")
+                    .execute()
+                )
+
+                insertar_en_lotes(
+                    "estadisticas_rivales_backup",
+                    backup_rivales
+                )
+
+                st.session_state["backup_rivales_generado"] = True
+
+                st.success(
+                    "✅ Backup de rivales actualizado con "
+                    f"{len(backup_rivales)} registros."
+                )
+
+            except Exception as error:
+                st.error("No se pudo generar el backup de rivales.")
+                st.exception(error)
+
+    with col_actualizar_rivales:
+        if st.button(
+            "🚀 Actualizar estadísticas de rivales",
+            key="btn_actualizar_estadisticas_rivales",
+            use_container_width=True,
+            disabled=not datos_rivales_listos
+        ):
+            try:
+                registros_rivales = st.session_state.get(
+                    "estadisticas_rivales_registros",
+                    []
+                )
+
+                st.write(
+                    "Rivales a actualizar: "
+                    f"{len(registros_rivales)}"
+                )
+
+                upsert_en_lotes(
+                    "estadisticas_rivales",
+                    registros_rivales,
+                    "jugador_1,jugador_2"
+                )
+
+                st.success(
+                    "✅ estadisticas_rivales actualizada con "
+                    f"{len(registros_rivales)} registros."
+                )
+
+            except Exception as error:
+                st.error("No se pudo actualizar estadisticas_rivales.")
+                st.exception(error)
+
+    st.divider()
     st.subheader("🌐 Acciones generales")
     st.info(
         "Estas acciones ejecutan el proceso sobre jugadores, parejas y equipos. "
@@ -1541,7 +1833,9 @@ if st.session_state.get("chequeo_realizado", False):
             "backup_parejas_registros",
             "estadisticas_parejas_registros",
             "backup_equipos_registros",
-            "equipos_master_registros"
+            "equipos_master_registros",
+            "backup_rivales_registros",
+            "estadisticas_rivales_registros"
         ]
     )
 
@@ -1566,6 +1860,10 @@ if st.session_state.get("chequeo_realizado", False):
                     )
                     backup_equipos = st.session_state.get(
                         "backup_equipos_registros",
+                        []
+                    )
+                    backup_rivales = st.session_state.get(
+                        "backup_rivales_registros",
                         []
                     )
 
@@ -1605,15 +1903,29 @@ if st.session_state.get("chequeo_realizado", False):
                         backup_equipos
                     )
 
+                    (
+                        supabase
+                        .table("estadisticas_rivales_backup")
+                        .delete()
+                        .neq("jugador_1", "")
+                        .execute()
+                    )
+                    insertar_en_lotes(
+                        "estadisticas_rivales_backup",
+                        backup_rivales
+                    )
+
                     st.session_state["backup_generado"] = True
                     st.session_state["backup_parejas_generado"] = True
                     st.session_state["backup_equipos_generado"] = True
+                    st.session_state["backup_rivales_generado"] = True
 
                 st.success(
                     "✅ Todos los backups fueron actualizados. "
                     f"Jugadores: {len(backup_jugadores)}. "
                     f"Parejas: {len(backup_parejas)}. "
-                    f"Equipos: {len(backup_equipos)}."
+                    f"Equipos: {len(backup_equipos)}. "
+                    f"Rivales: {len(backup_rivales)}."
                 )
 
             except Exception as error:
@@ -1641,6 +1953,10 @@ if st.session_state.get("chequeo_realizado", False):
                         "equipos_master_registros",
                         []
                     )
+                    registros_rivales = st.session_state.get(
+                        "estadisticas_rivales_registros",
+                        []
+                    )
 
                     upsert_en_lotes(
                         "jugadores_master",
@@ -1657,12 +1973,18 @@ if st.session_state.get("chequeo_realizado", False):
                         registros_equipos,
                         "equipo"
                     )
+                    upsert_en_lotes(
+                        "estadisticas_rivales",
+                        registros_rivales,
+                        "jugador_1,jugador_2"
+                    )
 
                 st.success(
                     "✅ Todas las estadísticas fueron actualizadas. "
                     f"Jugadores: {len(registros_jugadores)}. "
                     f"Parejas: {len(registros_parejas)}. "
-                    f"Equipos: {len(registros_equipos)}."
+                    f"Equipos: {len(registros_equipos)}. "
+                    f"Rivales: {len(registros_rivales)}."
                 )
 
             except Exception as error:
@@ -1685,6 +2007,9 @@ if st.session_state.get("chequeo_realizado", False):
                     )
                     equipos_verificacion = leer_tabla_completa(
                         "equipos_master"
+                    )
+                    rivales_verificacion = leer_tabla_completa(
+                        "estadisticas_rivales"
                     )
                     partidos_verificacion = leer_tabla_completa(
                         "partidos"
@@ -1775,6 +2100,34 @@ if st.session_state.get("chequeo_realizado", False):
                             "Hay equipos duplicados en equipos_master."
                         )
 
+                if not rivales_verificacion.empty:
+                    for columna in ["PJ", "G_jugador_1", "G_jugador_2", "E"]:
+                        rivales_verificacion[columna] = pd.to_numeric(
+                            rivales_verificacion[columna],
+                            errors="coerce"
+                        )
+
+                    rivales_invalidos = rivales_verificacion[
+                        rivales_verificacion["PJ"]
+                        != (
+                            rivales_verificacion["G_jugador_1"]
+                            + rivales_verificacion["G_jugador_2"]
+                            + rivales_verificacion["E"]
+                        )
+                    ]
+
+                    if not rivales_invalidos.empty:
+                        errores_verificacion.append(
+                            "Hay rivales donde PJ no coincide con G_jugador_1 + G_jugador_2 + E."
+                        )
+
+                    if rivales_verificacion.duplicated(
+                        subset=["jugador_1", "jugador_2"]
+                    ).any():
+                        errores_verificacion.append(
+                            "Hay rivales duplicados en estadisticas_rivales."
+                        )
+
                 ultimo_partido_texto = "Sin fecha"
 
                 if (
@@ -1799,14 +2152,16 @@ if st.session_state.get("chequeo_realizado", False):
                             "participaciones",
                             "jugadores_master",
                             "estadisticas_parejas",
-                            "equipos_master"
+                            "equipos_master",
+                            "estadisticas_rivales"
                         ],
                         "Registros en Supabase": [
                             len(partidos_verificacion),
                             len(participaciones_verificacion),
                             len(jugadores_verificacion),
                             len(parejas_verificacion),
-                            len(equipos_verificacion)
+                            len(equipos_verificacion),
+                            len(rivales_verificacion)
                         ],
                         "Registros calculados": [
                             None,
@@ -1819,6 +2174,9 @@ if st.session_state.get("chequeo_realizado", False):
                             ) or []),
                             len(st.session_state.get(
                                 "equipos_master_registros"
+                            ) or []),
+                            len(st.session_state.get(
+                                "estadisticas_rivales_registros"
                             ) or [])
                         ]
                     }
