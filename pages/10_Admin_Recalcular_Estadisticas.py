@@ -10,7 +10,7 @@ from supabase_utils import get_supabase
 # CONFIGURACION Y LOGIN
 # ==================================================
 
-st.title("🔄 Recalcular Estadísticas")
+st.title("🔄 Admin - Recalcular Estadísticas")
 
 usuario = st.text_input("Usuario")
 password = st.text_input("Contraseña", type="password")
