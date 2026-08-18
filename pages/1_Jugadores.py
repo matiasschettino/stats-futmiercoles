@@ -262,6 +262,9 @@ def construir_radar(info_1, info_2, jugador_1, jugador_2):
     valores_1_cerrados = valores_1_normalizados + [valores_1_normalizados[0]]
     valores_2_cerrados = valores_2_normalizados + [valores_2_normalizados[0]]
 
+    valores_reales_1 = valores_1 + [valores_1[0]]
+    valores_reales_2 = valores_2 + [valores_2[0]]
+
     fig = go.Figure()
 
     fig.add_trace(
@@ -269,7 +272,24 @@ def construir_radar(info_1, info_2, jugador_1, jugador_2):
             r=valores_1_cerrados,
             theta=categorias_cerradas,
             fill="toself",
-            name=jugador_1
+            name=jugador_1,
+            line=dict(
+                color="#00C2FF",
+                width=4
+            ),
+            fillcolor="rgba(0, 194, 255, 0.25)",
+            marker=dict(
+                size=8,
+                color="#00C2FF"
+            ),
+            customdata=valores_reales_1,
+            hovertemplate=(
+                "<b>%{fullData.name}</b><br>"
+                "%{theta}<br>"
+                "Valor real: %{customdata}<br>"
+                "Comparación relativa: %{r:.1f}%"
+                "<extra></extra>"
+            )
         )
     )
 
@@ -278,19 +298,73 @@ def construir_radar(info_1, info_2, jugador_1, jugador_2):
             r=valores_2_cerrados,
             theta=categorias_cerradas,
             fill="toself",
-            name=jugador_2
+            name=jugador_2,
+            line=dict(
+                color="#FFB000",
+                width=4
+            ),
+            fillcolor="rgba(255, 176, 0, 0.25)",
+            marker=dict(
+                size=8,
+                color="#FFB000"
+            ),
+            customdata=valores_reales_2,
+            hovertemplate=(
+                "<b>%{fullData.name}</b><br>"
+                "%{theta}<br>"
+                "Valor real: %{customdata}<br>"
+                "Comparación relativa: %{r:.1f}%"
+                "<extra></extra>"
+            )
         )
     )
 
     fig.update_layout(
-        height=500,
-        polar={
-            "radialaxis": {
-                "visible": True,
-                "range": [0, 100]
-            }
-        },
-        showlegend=True
+        height=560,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(
+            color="white",
+            size=14
+        ),
+        polar=dict(
+            bgcolor="rgba(15, 23, 42, 0.95)",
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100],
+                tickfont=dict(
+                    color="rgba(255,255,255,0.75)",
+                    size=12
+                ),
+                gridcolor="rgba(255,255,255,0.18)",
+                linecolor="rgba(255,255,255,0.25)"
+            ),
+            angularaxis=dict(
+                tickfont=dict(
+                    color="white",
+                    size=14
+                ),
+                gridcolor="rgba(255,255,255,0.18)",
+                linecolor="rgba(255,255,255,0.25)"
+            )
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.10,
+            xanchor="center",
+            x=0.5,
+            font=dict(
+                color="white",
+                size=14
+            )
+        ),
+        margin=dict(
+            l=80,
+            r=80,
+            t=90,
+            b=60
+        )
     )
 
     return fig
