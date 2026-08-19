@@ -393,6 +393,46 @@ def calcular_dupla_periodo(participaciones_df, jugador_1, jugador_2):
     }
 
 
+def calcular_enfrentamiento_periodo(participaciones_df, jugador_1, jugador_2):
+    resultados_jugador_1 = []
+
+    participaciones_filtradas = participaciones_df[
+        participaciones_df["jugador"].isin([jugador_1, jugador_2])
+    ].copy()
+
+    for _, grupo in participaciones_filtradas.groupby("partido_id"):
+        jugadores_partido = set(grupo["jugador"].dropna().astype(str))
+
+        if not {jugador_1, jugador_2}.issubset(jugadores_partido):
+            continue
+
+        fila_1 = grupo[grupo["jugador"] == jugador_1].iloc[0]
+        fila_2 = grupo[grupo["jugador"] == jugador_2].iloc[0]
+
+        if fila_1["equipo"] == fila_2["equipo"]:
+            continue
+
+        resultados_jugador_1.append(fila_1["resultado_jugador"])
+
+    pj = len(resultados_jugador_1)
+
+    if pj == 0:
+        return None
+
+    victorias_jugador_1 = resultados_jugador_1.count("G")
+    empates = resultados_jugador_1.count("E")
+    victorias_jugador_2 = resultados_jugador_1.count("P")
+
+    return {
+        "pj": pj,
+        "victorias_jugador_1": victorias_jugador_1,
+        "victorias_jugador_2": victorias_jugador_2,
+        "empates": empates,
+        "winrate_jugador_1": round(victorias_jugador_1 / pj * 100, 2),
+        "winrate_jugador_2": round(victorias_jugador_2 / pj * 100, 2)
+    }
+
+
 def construir_grafico_dupla_timeline(timeline_df):
     fig = go.Figure()
 
@@ -2011,8 +2051,12 @@ with tab_comparador:
                 periodo_comparacion
             )
 
-            enfrentamiento = obtener_enfrentamiento(
-                rivales,
+            participaciones_periodo = filtrar_historial_por_periodo(
+                participaciones_historial,
+                periodo_comparacion
+            )
+            enfrentamiento = calcular_enfrentamiento_periodo(
+                participaciones_periodo,
                 jugador_1,
                 jugador_2
             )
@@ -2067,10 +2111,6 @@ with tab_comparador:
             st.divider()
             st.subheader("🤝 Como dupla")
 
-            participaciones_periodo = filtrar_historial_por_periodo(
-                participaciones_historial,
-                periodo_comparacion
-            )
             datos_dupla = calcular_dupla_periodo(
                 participaciones_periodo,
                 jugador_1,
@@ -2159,7 +2199,7 @@ with tab_comparador:
                 )
 
                 timeline_enfrentamientos = obtener_timeline_enfrentamientos(
-                    participaciones_historial,
+                    participaciones_periodo,
                     jugador_1,
                     jugador_2
                 )
