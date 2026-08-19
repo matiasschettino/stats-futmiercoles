@@ -206,6 +206,92 @@ def obtener_enfrentamiento(rivales_df, jugador_1, jugador_2):
     }
 
 
+def obtener_rivales_jugador(rivales_df, jugador):
+    if rivales_df.empty:
+        return pd.DataFrame()
+
+    registros = []
+
+    for _, fila in rivales_df.iterrows():
+        jugador_1 = fila.get("jugador_1")
+        jugador_2 = fila.get("jugador_2")
+
+        if jugador not in [jugador_1, jugador_2]:
+            continue
+
+        if jugador == jugador_1:
+            rival = jugador_2
+            victorias_jugador = numero_entero_seguro(fila.get("g_jugador_1"))
+            victorias_rival = numero_entero_seguro(fila.get("g_jugador_2"))
+            winrate = numero_decimal_seguro(fila.get("winrate_jugador_1"))
+        else:
+            rival = jugador_1
+            victorias_jugador = numero_entero_seguro(fila.get("g_jugador_2"))
+            victorias_rival = numero_entero_seguro(fila.get("g_jugador_1"))
+            winrate = numero_decimal_seguro(fila.get("winrate_jugador_2"))
+
+        registros.append(
+            {
+                "rival": rival,
+                "pj": numero_entero_seguro(fila.get("pj")),
+                "victorias_jugador": victorias_jugador,
+                "victorias_rival": victorias_rival,
+                "empates": numero_entero_seguro(fila.get("E")),
+                "winrate": winrate
+            }
+        )
+
+    return pd.DataFrame(registros)
+
+
+def obtener_timeline_enfrentamientos(participaciones_df, jugador_1, jugador_2):
+    registros = []
+
+    participaciones_filtradas = participaciones_df[
+        participaciones_df["jugador"].isin([jugador_1, jugador_2])
+    ].copy()
+
+    for _, grupo in participaciones_filtradas.groupby("partido_id"):
+        jugadores_partido = set(grupo["jugador"].dropna().astype(str))
+
+        if not {jugador_1, jugador_2}.issubset(jugadores_partido):
+            continue
+
+        fila_1 = grupo[grupo["jugador"] == jugador_1].iloc[0]
+        fila_2 = grupo[grupo["jugador"] == jugador_2].iloc[0]
+
+        if fila_1["equipo"] == fila_2["equipo"]:
+            continue
+
+        fecha = fila_1["fecha"]
+
+        if pd.isna(fecha):
+            continue
+
+        resultado_1 = fila_1["resultado_jugador"]
+        resultado_2 = fila_2["resultado_jugador"]
+
+        registros.append(
+            {
+                "Año": fecha.year,
+                f"Victorias {jugador_1}": 1 if resultado_1 == "G" else 0,
+                "Empates": 1 if resultado_1 == "E" else 0,
+                f"Victorias {jugador_2}": 1 if resultado_2 == "G" else 0,
+                "Total": 1
+            }
+        )
+
+    if not registros:
+        return pd.DataFrame()
+
+    return (
+        pd.DataFrame(registros)
+        .groupby("Año", as_index=False)
+        .sum()
+        .sort_values("Año")
+    )
+
+
 def construir_comparacion(info_1, info_2, jugador_1, jugador_2):
     datos = [
         {
@@ -280,7 +366,7 @@ def construir_barras_comparacion(info_1, info_2, jugador_1, jugador_2):
         "Victorias",
         "Win Rate %",
         "Mejor racha positiva",
-        "Racha activa"
+        "Peor racha negativa"
     ]
 
     valores_jugador_1 = [
@@ -288,7 +374,7 @@ def construir_barras_comparacion(info_1, info_2, jugador_1, jugador_2):
         numero_decimal_seguro(info_1.get("G")),
         numero_decimal_seguro(info_1.get("WinRate")),
         numero_decimal_seguro(info_1.get("mejor_racha_ganadora")),
-        numero_decimal_seguro(info_1.get("racha_activa"))
+        numero_decimal_seguro(info_1.get("peor_racha_perdedora"))
     ]
 
     valores_jugador_2 = [
@@ -296,7 +382,7 @@ def construir_barras_comparacion(info_1, info_2, jugador_1, jugador_2):
         numero_decimal_seguro(info_2.get("G")),
         numero_decimal_seguro(info_2.get("WinRate")),
         numero_decimal_seguro(info_2.get("mejor_racha_ganadora")),
-        numero_decimal_seguro(info_2.get("racha_activa"))
+        numero_decimal_seguro(info_2.get("peor_racha_perdedora"))
     ]
 
     fig = go.Figure()
@@ -308,8 +394,13 @@ def construir_barras_comparacion(info_1, info_2, jugador_1, jugador_2):
             name=jugador_1,
             orientation="h",
             marker_color="#00C2FF",
-            text=valores_jugador_1,
-            textposition="auto"
+            text=[f"{valor:.1f}" for valor in valores_jugador_1],
+            textposition="outside",
+            hovertemplate=(
+                f"<b>{jugador_1}</b><br>"
+                "%{y}: %{x:.1f}"
+                "<extra></extra>"
+            )
         )
     )
 
@@ -320,8 +411,13 @@ def construir_barras_comparacion(info_1, info_2, jugador_1, jugador_2):
             name=jugador_2,
             orientation="h",
             marker_color="#FFB000",
-            text=valores_jugador_2,
-            textposition="auto"
+            text=[f"{valor:.1f}" for valor in valores_jugador_2],
+            textposition="outside",
+            hovertemplate=(
+                f"<b>{jugador_2}</b><br>"
+                "%{y}: %{x:.1f}"
+                "<extra></extra>"
+            )
         )
     )
 
@@ -347,6 +443,12 @@ def construir_barras_comparacion(info_1, info_2, jugador_1, jugador_2):
             "y": 1.02,
             "xanchor": "center",
             "x": 0.5
+        },
+        hoverlabel={
+            "bgcolor": "#111827",
+            "font_size": 13,
+            "font_color": "white",
+            "bordercolor": "rgba(255,255,255,0.35)"
         },
         margin={
             "l": 140,
@@ -886,6 +988,88 @@ with tab_perfil:
                     f"📉 Peor racha histórica: {peor_racha} derrotas"
                 )
 
+            rivales_jugador = obtener_rivales_jugador(
+                rivales,
+                jugador
+            )
+
+            if not rivales_jugador.empty:
+                st.divider()
+                st.subheader("⚔️ Rivales destacados")
+
+                rivales_con_minimo = rivales_jugador[
+                    rivales_jugador["pj"] >= 5
+                ].copy()
+
+                rival_mas_vencido = (
+                    rivales_jugador
+                    .sort_values(
+                        ["victorias_jugador", "pj", "rival"],
+                        ascending=[False, False, True]
+                    )
+                    .iloc[0]
+                )
+
+                rival_que_mas_le_gano = (
+                    rivales_jugador
+                    .sort_values(
+                        ["victorias_rival", "pj", "rival"],
+                        ascending=[False, False, True]
+                    )
+                    .iloc[0]
+                )
+
+                base_porcentaje = (
+                    rivales_con_minimo
+                    if not rivales_con_minimo.empty
+                    else rivales_jugador
+                )
+
+                mejor_porcentaje = (
+                    base_porcentaje
+                    .sort_values(
+                        ["winrate", "pj", "rival"],
+                        ascending=[False, False, True]
+                    )
+                    .iloc[0]
+                )
+
+                peor_porcentaje = (
+                    base_porcentaje
+                    .sort_values(
+                        ["winrate", "pj", "rival"],
+                        ascending=[True, False, True]
+                    )
+                    .iloc[0]
+                )
+
+                r1, r2, r3, r4 = st.columns(4)
+
+                r1.metric(
+                    "Más victorias contra",
+                    texto_seguro(rival_mas_vencido["rival"]),
+                    f"{numero_entero_seguro(rival_mas_vencido['victorias_jugador'])} victorias"
+                )
+                r2.metric(
+                    "Más derrotas contra",
+                    texto_seguro(rival_que_mas_le_gano["rival"]),
+                    f"{numero_entero_seguro(rival_que_mas_le_gano['victorias_rival'])} derrotas"
+                )
+                r3.metric(
+                    "Mejor WR vs rival",
+                    texto_seguro(mejor_porcentaje["rival"]),
+                    f"{numero_decimal_seguro(mejor_porcentaje['winrate']):.1f}%"
+                )
+                r4.metric(
+                    "Peor WR vs rival",
+                    texto_seguro(peor_porcentaje["rival"]),
+                    f"{numero_decimal_seguro(peor_porcentaje['winrate']):.1f}%"
+                )
+
+                st.caption(
+                    "Para mejor y peor Win Rate vs rival se usa mínimo de 5 enfrentamientos cuando hay datos suficientes."
+                )
+
             historial = participaciones_historial[
                 participaciones_historial["jugador"] == jugador
             ].copy()
@@ -1100,11 +1284,7 @@ with tab_comparador:
             )
 
             st.divider()
-            st.subheader("📊 Comparación visual")
-            st.caption(
-                "El gráfico reemplaza la tabla comparativa para evitar duplicar información. "
-                "Las barras muestran valores reales por métrica."
-            )
+            st.subheader("📊 Comparación")
 
             fig_comparacion = construir_barras_comparacion(
                 info_1,
@@ -1135,33 +1315,30 @@ with tab_comparador:
                 pj_jugador_2 = max(numero_entero_seguro(info_2.get("PJ")), 1)
                 porcentaje_jugador_1 = pj_juntos / pj_jugador_1 * 100
                 porcentaje_jugador_2 = pj_juntos / pj_jugador_2 * 100
+                record_dupla = (
+                    f"{numero_entero_seguro(datos_dupla.get('G'))}-"
+                    f"{numero_entero_seguro(datos_dupla.get('E'))}-"
+                    f"{numero_entero_seguro(datos_dupla.get('P'))}"
+                )
 
-                d1, d2, d3, d4, d5 = st.columns(5)
+                d1, d2, d3 = st.columns(3)
 
                 d1.metric(
                     "PJ juntos",
                     pj_juntos
                 )
                 d2.metric(
-                    f"% de PJ de {jugador_1}",
-                    f"{porcentaje_jugador_1:.1f}%"
+                    "Participación",
+                    f"{porcentaje_jugador_1:.1f}% / {porcentaje_jugador_2:.1f}%",
+                    help=(
+                        f"{porcentaje_jugador_1:.1f}% de los PJ de {jugador_1}. "
+                        f"{porcentaje_jugador_2:.1f}% de los PJ de {jugador_2}."
+                    )
                 )
                 d3.metric(
-                    f"% de PJ de {jugador_2}",
-                    f"{porcentaje_jugador_2:.1f}%"
-                )
-                d4.metric(
-                    "Récord juntos",
-                    (
-                        f"{numero_entero_seguro(datos_dupla.get('G'))}-"
-                        f"{numero_entero_seguro(datos_dupla.get('E'))}-"
-                        f"{numero_entero_seguro(datos_dupla.get('P'))}"
-                    ),
-                    help="Formato: victorias-empates-derrotas"
-                )
-                d5.metric(
-                    "Win Rate dupla",
-                    f"{numero_decimal_seguro(datos_dupla.get('WinRate')):.1f}%"
+                    "Récord y WR",
+                    f"{record_dupla} | {numero_decimal_seguro(datos_dupla.get('WinRate')):.1f}%",
+                    help="Formato: victorias-empates-derrotas | Win Rate"
                 )
 
             st.divider()
@@ -1180,6 +1357,131 @@ with tab_comparador:
                     fig_enfrentamiento,
                     use_container_width=True
                 )
+
+                timeline_enfrentamientos = obtener_timeline_enfrentamientos(
+                    participaciones_historial,
+                    jugador_1,
+                    jugador_2
+                )
+
+                if not timeline_enfrentamientos.empty:
+                    st.subheader("📅 Evolución anual del mano a mano")
+
+                    fig_timeline = go.Figure()
+                    columna_victorias_1 = f"Victorias {jugador_1}"
+                    columna_victorias_2 = f"Victorias {jugador_2}"
+
+                    fig_timeline.add_trace(
+                        go.Bar(
+                            x=timeline_enfrentamientos["Año"],
+                            y=timeline_enfrentamientos[columna_victorias_1],
+                            name=f"Victorias {jugador_1}",
+                            marker_color="#00C2FF",
+                            hovertemplate=(
+                                f"<b>{jugador_1}</b><br>"
+                                "Año: %{x}<br>"
+                                "Victorias: %{y}"
+                                "<extra></extra>"
+                            )
+                        )
+                    )
+
+                    fig_timeline.add_trace(
+                        go.Bar(
+                            x=timeline_enfrentamientos["Año"],
+                            y=timeline_enfrentamientos["Empates"],
+                            name="Empates",
+                            marker_color="#94A3B8",
+                            hovertemplate=(
+                                "<b>Empates</b><br>"
+                                "Año: %{x}<br>"
+                                "Empates: %{y}"
+                                "<extra></extra>"
+                            )
+                        )
+                    )
+
+                    fig_timeline.add_trace(
+                        go.Bar(
+                            x=timeline_enfrentamientos["Año"],
+                            y=timeline_enfrentamientos[columna_victorias_2],
+                            name=f"Victorias {jugador_2}",
+                            marker_color="#FFB000",
+                            hovertemplate=(
+                                f"<b>{jugador_2}</b><br>"
+                                "Año: %{x}<br>"
+                                "Victorias: %{y}"
+                                "<extra></extra>"
+                            )
+                        )
+                    )
+
+                    fig_timeline.add_trace(
+                        go.Scatter(
+                            x=timeline_enfrentamientos["Año"],
+                            y=timeline_enfrentamientos["Total"],
+                            name="Total enfrentamientos",
+                            mode="lines+markers",
+                            line={
+                                "color": "white",
+                                "width": 3
+                            },
+                            marker={
+                                "size": 8,
+                                "color": "white"
+                            },
+                            hovertemplate=(
+                                "<b>Total enfrentamientos</b><br>"
+                                "Año: %{x}<br>"
+                                "Total: %{y}"
+                                "<extra></extra>"
+                            )
+                        )
+                    )
+
+                    fig_timeline.update_layout(
+                        height=430,
+                        barmode="stack",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font={
+                            "color": "white",
+                            "size": 13
+                        },
+                        xaxis={
+                            "title": "Año",
+                            "tickmode": "linear",
+                            "gridcolor": "rgba(255,255,255,0.12)"
+                        },
+                        yaxis={
+                            "title": "Cantidad de partidos",
+                            "gridcolor": "rgba(255,255,255,0.12)"
+                        },
+                        legend={
+                            "orientation": "h",
+                            "yanchor": "bottom",
+                            "y": 1.02,
+                            "xanchor": "center",
+                            "x": 0.5
+                        },
+                        hoverlabel={
+                            "bgcolor": "#111827",
+                            "font_size": 13,
+                            "font_color": "white",
+                            "bordercolor": "rgba(255,255,255,0.35)"
+                        },
+                        margin={
+                            "l": 50,
+                            "r": 30,
+                            "t": 80,
+                            "b": 50
+                        }
+                    )
+
+                    st.plotly_chart(
+                        fig_timeline,
+                        use_container_width=True
+                    )
 
                 if enfrentamiento["victorias_jugador_1"] > enfrentamiento["victorias_jugador_2"]:
                     diferencia = (
