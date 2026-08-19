@@ -150,6 +150,62 @@ def obtener_companeros(jugador, parejas_df):
     return companero_frecuente, mejor_companero, peor_companero
 
 
+def obtener_dupla(parejas_df, jugador_1, jugador_2):
+    dupla = parejas_df[
+        (
+            (parejas_df["jugador_1"] == jugador_1)
+            & (parejas_df["jugador_2"] == jugador_2)
+        )
+        |
+        (
+            (parejas_df["jugador_2"] == jugador_1)
+            & (parejas_df["jugador_1"] == jugador_2)
+        )
+    ]
+
+    if dupla.empty:
+        return None
+
+    return dupla.iloc[0]
+
+
+def obtener_enfrentamiento(rivales_df, jugador_1, jugador_2):
+    if rivales_df.empty:
+        return None
+
+    jugador_a, jugador_b = sorted([jugador_1, jugador_2])
+
+    enfrentamiento = rivales_df[
+        (rivales_df["jugador_1"] == jugador_a)
+        & (rivales_df["jugador_2"] == jugador_b)
+    ]
+
+    if enfrentamiento.empty:
+        return None
+
+    datos = enfrentamiento.iloc[0]
+
+    if jugador_1 == jugador_a:
+        victorias_jugador_1 = numero_entero_seguro(datos.get("g_jugador_1"))
+        victorias_jugador_2 = numero_entero_seguro(datos.get("g_jugador_2"))
+        winrate_jugador_1 = numero_decimal_seguro(datos.get("winrate_jugador_1"))
+        winrate_jugador_2 = numero_decimal_seguro(datos.get("winrate_jugador_2"))
+    else:
+        victorias_jugador_1 = numero_entero_seguro(datos.get("g_jugador_2"))
+        victorias_jugador_2 = numero_entero_seguro(datos.get("g_jugador_1"))
+        winrate_jugador_1 = numero_decimal_seguro(datos.get("winrate_jugador_2"))
+        winrate_jugador_2 = numero_decimal_seguro(datos.get("winrate_jugador_1"))
+
+    return {
+        "pj": numero_entero_seguro(datos.get("pj")),
+        "victorias_jugador_1": victorias_jugador_1,
+        "victorias_jugador_2": victorias_jugador_2,
+        "empates": numero_entero_seguro(datos.get("E")),
+        "winrate_jugador_1": winrate_jugador_1,
+        "winrate_jugador_2": winrate_jugador_2
+    }
+
+
 def construir_comparacion(info_1, info_2, jugador_1, jugador_2):
     datos = [
         {
@@ -218,16 +274,16 @@ def construir_comparacion(info_1, info_2, jugador_1, jugador_2):
     return pd.DataFrame(datos)
 
 
-def construir_radar(info_1, info_2, jugador_1, jugador_2):
-    categorias = [
+def construir_barras_comparacion(info_1, info_2, jugador_1, jugador_2):
+    metricas = [
         "PJ",
         "Victorias",
-        "Win Rate",
-        "Mejor racha",
+        "Win Rate %",
+        "Mejor racha positiva",
         "Racha activa"
     ]
 
-    valores_1 = [
+    valores_jugador_1 = [
         numero_decimal_seguro(info_1.get("PJ")),
         numero_decimal_seguro(info_1.get("G")),
         numero_decimal_seguro(info_1.get("WinRate")),
@@ -235,7 +291,7 @@ def construir_radar(info_1, info_2, jugador_1, jugador_2):
         numero_decimal_seguro(info_1.get("racha_activa"))
     ]
 
-    valores_2 = [
+    valores_jugador_2 = [
         numero_decimal_seguro(info_2.get("PJ")),
         numero_decimal_seguro(info_2.get("G")),
         numero_decimal_seguro(info_2.get("WinRate")),
@@ -243,131 +299,112 @@ def construir_radar(info_1, info_2, jugador_1, jugador_2):
         numero_decimal_seguro(info_2.get("racha_activa"))
     ]
 
-    maximos = [
-        max(v1, v2, 1)
-        for v1, v2 in zip(valores_1, valores_2)
-    ]
-
-    valores_1_normalizados = [
-        round(v / m * 100, 2)
-        for v, m in zip(valores_1, maximos)
-    ]
-
-    valores_2_normalizados = [
-        round(v / m * 100, 2)
-        for v, m in zip(valores_2, maximos)
-    ]
-
-    categorias_cerradas = categorias + [categorias[0]]
-    valores_1_cerrados = valores_1_normalizados + [valores_1_normalizados[0]]
-    valores_2_cerrados = valores_2_normalizados + [valores_2_normalizados[0]]
-
-    valores_reales_1 = valores_1 + [valores_1[0]]
-    valores_reales_2 = valores_2 + [valores_2[0]]
-
     fig = go.Figure()
 
     fig.add_trace(
-        go.Scatterpolar(
-            r=valores_1_cerrados,
-            theta=categorias_cerradas,
-            fill="toself",
+        go.Bar(
+            y=metricas,
+            x=valores_jugador_1,
             name=jugador_1,
-            line=dict(
-                color="#00C2FF",
-                width=4
-            ),
-            fillcolor="rgba(0, 194, 255, 0.25)",
-            marker=dict(
-                size=8,
-                color="#00C2FF"
-            ),
-            customdata=valores_reales_1,
-            hovertemplate=(
-                "<b>%{fullData.name}</b><br>"
-                "%{theta}<br>"
-                "Valor real: %{customdata}<br>"
-                "Comparación relativa: %{r:.1f}%"
-                "<extra></extra>"
-            )
+            orientation="h",
+            marker_color="#00C2FF",
+            text=valores_jugador_1,
+            textposition="auto"
         )
     )
 
     fig.add_trace(
-        go.Scatterpolar(
-            r=valores_2_cerrados,
-            theta=categorias_cerradas,
-            fill="toself",
+        go.Bar(
+            y=metricas,
+            x=valores_jugador_2,
             name=jugador_2,
-            line=dict(
-                color="#FFB000",
-                width=4
-            ),
-            fillcolor="rgba(255, 176, 0, 0.25)",
-            marker=dict(
-                size=8,
-                color="#FFB000"
-            ),
-            customdata=valores_reales_2,
-            hovertemplate=(
-                "<b>%{fullData.name}</b><br>"
-                "%{theta}<br>"
-                "Valor real: %{customdata}<br>"
-                "Comparación relativa: %{r:.1f}%"
-                "<extra></extra>"
-            )
+            orientation="h",
+            marker_color="#FFB000",
+            text=valores_jugador_2,
+            textposition="auto"
         )
     )
 
     fig.update_layout(
-        height=560,
+        height=460,
+        barmode="group",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(
-            color="white",
-            size=14
-        ),
-        polar=dict(
-            bgcolor="rgba(15, 23, 42, 0.95)",
-            radialaxis=dict(
-                visible=True,
-                range=[0, 100],
-                tickfont=dict(
-                    color="rgba(255,255,255,0.75)",
-                    size=12
-                ),
-                gridcolor="rgba(255,255,255,0.18)",
-                linecolor="rgba(255,255,255,0.25)"
-            ),
-            angularaxis=dict(
-                tickfont=dict(
-                    color="white",
-                    size=14
-                ),
-                gridcolor="rgba(255,255,255,0.18)",
-                linecolor="rgba(255,255,255,0.25)"
-            )
-        ),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.10,
-            xanchor="center",
-            x=0.5,
-            font=dict(
-                color="white",
-                size=14
-            )
-        ),
-        margin=dict(
-            l=80,
-            r=80,
-            t=90,
-            b=60
-        )
+        font={
+            "color": "white",
+            "size": 13
+        },
+        xaxis={
+            "title": "Valor",
+            "gridcolor": "rgba(255,255,255,0.15)"
+        },
+        yaxis={
+            "title": ""
+        },
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "center",
+            "x": 0.5
+        },
+        margin={
+            "l": 140,
+            "r": 40,
+            "t": 70,
+            "b": 40
+        }
     )
 
     return fig
+
+
+def resumen_comparacion(info_1, info_2, jugador_1, jugador_2, enfrentamiento):
+    mensajes = []
+
+    pj_1 = numero_entero_seguro(info_1.get("PJ"))
+    pj_2 = numero_entero_seguro(info_2.get("PJ"))
+    wr_1 = numero_decimal_seguro(info_1.get("WinRate"))
+    wr_2 = numero_decimal_seguro(info_2.get("WinRate"))
+    g_1 = numero_entero_seguro(info_1.get("G"))
+    g_2 = numero_entero_seguro(info_2.get("G"))
+    mejor_racha_1 = numero_entero_seguro(info_1.get("mejor_racha_ganadora"))
+    mejor_racha_2 = numero_entero_seguro(info_2.get("mejor_racha_ganadora"))
+
+    if pj_1 > pj_2:
+        mensajes.append(f"{jugador_1} tiene más partidos jugados históricamente.")
+    elif pj_2 > pj_1:
+        mensajes.append(f"{jugador_2} tiene más partidos jugados históricamente.")
+
+    if g_1 > g_2:
+        mensajes.append(f"{jugador_1} suma más victorias totales.")
+    elif g_2 > g_1:
+        mensajes.append(f"{jugador_2} suma más victorias totales.")
+
+    if wr_1 > wr_2:
+        mensajes.append(f"{jugador_1} tiene mejor Win Rate histórico.")
+    elif wr_2 > wr_1:
+        mensajes.append(f"{jugador_2} tiene mejor Win Rate histórico.")
+
+    if mejor_racha_1 > mejor_racha_2:
+        mensajes.append(f"{jugador_1} tiene mejor racha positiva histórica.")
+    elif mejor_racha_2 > mejor_racha_1:
+        mensajes.append(f"{jugador_2} tiene mejor racha positiva histórica.")
+
+    if enfrentamiento is not None and enfrentamiento["pj"] > 0:
+        if enfrentamiento["victorias_jugador_1"] > enfrentamiento["victorias_jugador_2"]:
+            diferencia = enfrentamiento["victorias_jugador_1"] - enfrentamiento["victorias_jugador_2"]
+            mensajes.append(f"En enfrentamientos directos, {jugador_1} lidera por {diferencia} victoria(s).")
+        elif enfrentamiento["victorias_jugador_2"] > enfrentamiento["victorias_jugador_1"]:
+            diferencia = enfrentamiento["victorias_jugador_2"] - enfrentamiento["victorias_jugador_1"]
+            mensajes.append(f"En enfrentamientos directos, {jugador_2} lidera por {diferencia} victoria(s).")
+        else:
+            mensajes.append("El historial de enfrentamientos directos está empatado en victorias.")
+
+    if not mensajes:
+        mensajes.append("La comparación está muy pareja en las métricas principales.")
+
+    return mensajes
 
 
 # ==================================================
@@ -378,6 +415,7 @@ try:
     jugadores = leer_tabla_completa("jugadores_master")
     participaciones = leer_tabla_completa("participaciones")
     parejas = leer_tabla_completa("estadisticas_parejas")
+    rivales = leer_tabla_completa("estadisticas_rivales")
     partidos = leer_tabla_completa("partidos")
 
 except Exception as error:
@@ -435,6 +473,17 @@ columnas_parejas = [
     "WinRate"
 ]
 
+columnas_rivales = [
+    "jugador_1",
+    "jugador_2",
+    "pj",
+    "g_jugador_1",
+    "g_jugador_2",
+    "E",
+    "winrate_jugador_1",
+    "winrate_jugador_2"
+]
+
 columnas_partidos = [
     "id",
     "fecha",
@@ -450,6 +499,11 @@ validaciones = [
     ("estadisticas_parejas", parejas, columnas_parejas),
     ("partidos", partidos, columnas_partidos)
 ]
+
+if not rivales.empty:
+    validaciones.append(
+        ("estadisticas_rivales", rivales, columnas_rivales)
+    )
 
 for nombre_tabla, dataframe, columnas_requeridas in validaciones:
     faltantes = [
@@ -584,6 +638,20 @@ for columna in ["PJ", "G", "E", "P", "WinRate"]:
         parejas[columna],
         errors="coerce"
     )
+
+for columna in [
+    "pj",
+    "g_jugador_1",
+    "g_jugador_2",
+    "E",
+    "winrate_jugador_1",
+    "winrate_jugador_2"
+]:
+    if columna in rivales.columns:
+        rivales[columna] = pd.to_numeric(
+            rivales[columna],
+            errors="coerce"
+        )
 
 
 # ==================================================
@@ -829,21 +897,13 @@ with tab_perfil:
             if companero is None:
                 st.info("Seleccioná un segundo jugador para analizar la dupla.")
             else:
-                dupla = parejas[
-                    (
-                        (parejas["jugador_1"] == jugador)
-                        & (parejas["jugador_2"] == companero)
-                    )
-                    |
-                    (
-                        (parejas["jugador_2"] == jugador)
-                        & (parejas["jugador_1"] == companero)
-                    )
-                ]
+                datos_dupla = obtener_dupla(
+                    parejas,
+                    jugador,
+                    companero
+                )
 
-                if not dupla.empty:
-                    datos_dupla = dupla.iloc[0]
-
+                if datos_dupla is not None:
                     st.subheader(f"📊 {jugador} + {companero}")
 
                     c1, c2, c3, c4, c5 = st.columns(5)
@@ -879,7 +939,7 @@ with tab_perfil:
 with tab_comparador:
     st.subheader("⚔️ Comparar jugadores")
     st.caption(
-        "Seleccioná dos jugadores para comparar rendimiento histórico, rachas y datos principales."
+        "Seleccioná dos jugadores para comparar rendimiento histórico, dupla y enfrentamientos directos."
     )
 
     col_1, col_2 = st.columns(2)
@@ -913,8 +973,13 @@ with tab_comparador:
         if info_1 is None or info_2 is None:
             st.warning("No se encontraron datos para alguno de los jugadores seleccionados.")
         else:
-            st.divider()
+            enfrentamiento = obtener_enfrentamiento(
+                rivales,
+                jugador_1,
+                jugador_2
+            )
 
+            st.divider()
             st.subheader(f"📊 {jugador_1} vs {jugador_2}")
 
             c1, c2, c3, c4 = st.columns(4)
@@ -936,6 +1001,16 @@ with tab_comparador:
                 f"{numero_decimal_seguro(info_2.get('WinRate')):.1f}%"
             )
 
+            st.subheader("📌 Resumen automático")
+            for mensaje in resumen_comparacion(
+                info_1,
+                info_2,
+                jugador_1,
+                jugador_2,
+                enfrentamiento
+            ):
+                st.info(mensaje)
+
             comparacion = construir_comparacion(
                 info_1,
                 info_2,
@@ -943,6 +1018,7 @@ with tab_comparador:
                 jugador_2
             )
 
+            st.subheader("📋 Comparación general")
             st.dataframe(
                 comparacion,
                 use_container_width=True,
@@ -951,13 +1027,12 @@ with tab_comparador:
             )
 
             st.divider()
-            st.subheader("📡 Comparación visual normalizada")
+            st.subheader("📊 Comparación visual")
             st.caption(
-                "El gráfico normaliza cada métrica contra el mejor valor entre ambos jugadores. "
-                "Sirve para comparar forma relativa, no valores absolutos."
+                "Este gráfico muestra valores reales por métrica. Para métricas con escalas distintas, interpretalo como apoyo visual de la tabla."
             )
 
-            fig_comparacion = construir_radar(
+            fig_comparacion = construir_barras_comparacion(
                 info_1,
                 info_2,
                 jugador_1,
@@ -970,25 +1045,17 @@ with tab_comparador:
             )
 
             st.divider()
-            st.subheader("🤝 Dupla entre ambos")
+            st.subheader("🤝 Como dupla")
 
-            dupla = parejas[
-                (
-                    (parejas["jugador_1"] == jugador_1)
-                    & (parejas["jugador_2"] == jugador_2)
-                )
-                |
-                (
-                    (parejas["jugador_2"] == jugador_1)
-                    & (parejas["jugador_1"] == jugador_2)
-                )
-            ]
+            datos_dupla = obtener_dupla(
+                parejas,
+                jugador_1,
+                jugador_2
+            )
 
-            if dupla.empty:
+            if datos_dupla is None:
                 st.info("No se encontraron partidos juntos entre estos jugadores.")
             else:
-                datos_dupla = dupla.iloc[0]
-
                 d1, d2, d3, d4, d5 = st.columns(5)
 
                 d1.metric(
@@ -1010,4 +1077,69 @@ with tab_comparador:
                 d5.metric(
                     "Win Rate",
                     f"{numero_decimal_seguro(datos_dupla.get('WinRate')):.1f}%"
+                )
+
+            st.divider()
+            st.subheader("⚔️ Enfrentamiento directo")
+
+            if enfrentamiento is None:
+                st.info("No se encontraron enfrentamientos directos entre estos jugadores.")
+            else:
+                e1, e2, e3, e4, e5, e6 = st.columns(6)
+
+                e1.metric(
+                    "PJ enfrentados",
+                    enfrentamiento["pj"]
+                )
+                e2.metric(
+                    f"Victorias {jugador_1}",
+                    enfrentamiento["victorias_jugador_1"]
+                )
+                e3.metric(
+                    f"Victorias {jugador_2}",
+                    enfrentamiento["victorias_jugador_2"]
+                )
+                e4.metric(
+                    "Empates",
+                    enfrentamiento["empates"]
+                )
+                e5.metric(
+                    f"WR {jugador_1}",
+                    f"{enfrentamiento['winrate_jugador_1']:.1f}%"
+                )
+                e6.metric(
+                    f"WR {jugador_2}",
+                    f"{enfrentamiento['winrate_jugador_2']:.1f}%"
+                )
+
+                tabla_enfrentamiento = pd.DataFrame(
+                    [
+                        {
+                            "Métrica": "PJ enfrentados",
+                            jugador_1: enfrentamiento["pj"],
+                            jugador_2: enfrentamiento["pj"]
+                        },
+                        {
+                            "Métrica": "Victorias directas",
+                            jugador_1: enfrentamiento["victorias_jugador_1"],
+                            jugador_2: enfrentamiento["victorias_jugador_2"]
+                        },
+                        {
+                            "Métrica": "Empates",
+                            jugador_1: enfrentamiento["empates"],
+                            jugador_2: enfrentamiento["empates"]
+                        },
+                        {
+                            "Métrica": "Win Rate directo",
+                            jugador_1: f"{enfrentamiento['winrate_jugador_1']:.1f}%",
+                            jugador_2: f"{enfrentamiento['winrate_jugador_2']:.1f}%"
+                        }
+                    ]
+                )
+
+                st.dataframe(
+                    tabla_enfrentamiento,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=180
                 )
