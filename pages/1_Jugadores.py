@@ -357,6 +357,42 @@ def obtener_timeline_dupla(participaciones_df, jugador_1, jugador_2):
     )
 
 
+def calcular_dupla_periodo(participaciones_df, jugador_1, jugador_2):
+    registros = []
+
+    participaciones_filtradas = participaciones_df[
+        participaciones_df["jugador"].isin([jugador_1, jugador_2])
+    ].copy()
+
+    for _, grupo in participaciones_filtradas.groupby("partido_id"):
+        jugadores_partido = set(grupo["jugador"].dropna().astype(str))
+
+        if not {jugador_1, jugador_2}.issubset(jugadores_partido):
+            continue
+
+        fila_1 = grupo[grupo["jugador"] == jugador_1].iloc[0]
+        fila_2 = grupo[grupo["jugador"] == jugador_2].iloc[0]
+
+        if fila_1["equipo"] != fila_2["equipo"]:
+            continue
+
+        registros.append(fila_1["resultado_jugador"])
+
+    pj = len(registros)
+    g = registros.count("G")
+    e = registros.count("E")
+    p = registros.count("P")
+    winrate = round(g / pj * 100, 2) if pj else 0
+
+    return {
+        "PJ": pj,
+        "G": g,
+        "E": e,
+        "P": p,
+        "WinRate": winrate
+    }
+
+
 def construir_grafico_dupla_timeline(timeline_df):
     fig = go.Figure()
 
@@ -548,12 +584,11 @@ def construir_info_periodo(jugador, info_historica, participaciones_df, periodo)
     return datos
 
 
-def obtener_forma_reciente(historial_jugador, cantidad=10):
+def obtener_forma_reciente(historial_jugador, cantidad=8):
     return (
         historial_jugador
         .sort_values(["fecha", "partido_id"], ascending=[False, False])
         .head(cantidad)
-        .sort_values(["fecha", "partido_id"])
         .copy()
     )
 
@@ -1581,6 +1616,25 @@ with tab_perfil:
             c2.metric("Mejor Racha", mejor_racha)
             c3.metric("Peor Racha", peor_racha)
             c4.metric("Empates", numero_entero_seguro(info.get("E")))
+            st.divider()
+            st.subheader("🏛️ Posiciones históricas")
+            posiciones = obtener_posiciones_historicas(
+                jugadores,
+                jugador
+            )
+            p1, p2, p3, p4, p5 = st.columns(5)
+            p1.metric("PJ", f"#{posiciones['Ranking PJ']}")
+            p2.metric("Victorias", f"#{posiciones['Ranking victorias']}")
+            p3.metric(
+                "Win Rate +50 PJ",
+                (
+                    f"#{posiciones['Ranking WR +50 PJ']}"
+                    if posiciones["Ranking WR +50 PJ"] is not None
+                    else "Sin ranking"
+                )
+            )
+            p4.metric("Mejor racha", f"#{posiciones['Ranking mejor racha']}")
+            p5.metric("Peor racha", f"#{posiciones['Ranking peor racha']}")
 
             st.divider()
 
@@ -1711,6 +1765,16 @@ with tab_perfil:
                         "Se consideran solo rivales con al menos 20 enfrentamientos."
                     )
 
+                    top_rivales = construir_top_rivales(rivales_jugador)
+                    if not top_rivales.empty:
+                        st.subheader("⚔️ Top 5 rivales por enfrentamientos")
+                        st.dataframe(
+                            top_rivales,
+                            use_container_width=True,
+                            hide_index=True,
+                            height=260
+                        )
+
             historial["Año"] = historial["fecha"].dt.year
 
             evolucion = (
@@ -1774,37 +1838,6 @@ with tab_perfil:
                 st.plotly_chart(
                     construir_grafico_rendimiento_equipo(rendimiento_equipo),
                     use_container_width=True
-                )
-
-            st.divider()
-            st.subheader("🏛️ Posiciones históricas")
-            posiciones = obtener_posiciones_historicas(
-                jugadores,
-                jugador
-            )
-            p1, p2, p3, p4, p5 = st.columns(5)
-            p1.metric("PJ", f"#{posiciones['Ranking PJ']}")
-            p2.metric("Victorias", f"#{posiciones['Ranking victorias']}")
-            p3.metric(
-                "Win Rate +50 PJ",
-                (
-                    f"#{posiciones['Ranking WR +50 PJ']}"
-                    if posiciones["Ranking WR +50 PJ"] is not None
-                    else "Sin ranking"
-                )
-            )
-            p4.metric("Mejor racha", f"#{posiciones['Ranking mejor racha']}")
-            p5.metric("Peor racha", f"#{posiciones['Ranking peor racha']}")
-
-            top_rivales = construir_top_rivales(rivales_jugador)
-            if not top_rivales.empty:
-                st.divider()
-                st.subheader("⚔️ Top 5 rivales por enfrentamientos")
-                st.dataframe(
-                    top_rivales,
-                    use_container_width=True,
-                    hide_index=True,
-                    height=260
                 )
 
             if not evolucion.empty:
@@ -2034,14 +2067,18 @@ with tab_comparador:
             st.divider()
             st.subheader("🤝 Como dupla")
 
-            datos_dupla = obtener_dupla(
-                parejas,
+            participaciones_periodo = filtrar_historial_por_periodo(
+                participaciones_historial,
+                periodo_comparacion
+            )
+            datos_dupla = calcular_dupla_periodo(
+                participaciones_periodo,
                 jugador_1,
                 jugador_2
             )
 
-            if datos_dupla is None:
-                st.info("No se encontraron partidos juntos entre estos jugadores.")
+            if numero_entero_seguro(datos_dupla.get("PJ")) == 0:
+                st.info("No se encontraron partidos juntos entre estos jugadores en el período seleccionado.")
             else:
                 pj_juntos = numero_entero_seguro(datos_dupla.get("PJ"))
                 pj_jugador_1 = max(numero_entero_seguro(info_1.get("PJ")), 1)
@@ -2089,7 +2126,7 @@ with tab_comparador:
                 )
 
                 timeline_dupla = obtener_timeline_dupla(
-                    participaciones_historial,
+                    participaciones_periodo,
                     jugador_1,
                     jugador_2
                 )
