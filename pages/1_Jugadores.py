@@ -470,6 +470,436 @@ def construir_grafico_dupla_timeline(timeline_df):
     return fig
 
 
+
+def filtrar_historial_por_periodo(historial_df, periodo):
+    if historial_df.empty or periodo == "Histórico":
+        return historial_df.copy()
+
+    fecha_maxima = historial_df["fecha"].max()
+
+    if pd.isna(fecha_maxima):
+        return historial_df.copy()
+
+    if periodo == "Últimos 12 meses":
+        fecha_minima = fecha_maxima - pd.Timedelta(days=365)
+        return historial_df[historial_df["fecha"] >= fecha_minima].copy()
+
+    if periodo == "Últimos 3 años":
+        fecha_minima = fecha_maxima - pd.Timedelta(days=365 * 3)
+        return historial_df[historial_df["fecha"] >= fecha_minima].copy()
+
+    if periodo == "Desde 2020":
+        return historial_df[historial_df["fecha"].dt.year >= 2020].copy()
+
+    return historial_df.copy()
+
+
+def calcular_racha_en_resultados(resultados, tipo):
+    mejor = 0
+    actual = 0
+
+    for resultado in resultados:
+        if resultado == tipo:
+            actual += 1
+            mejor = max(mejor, actual)
+        else:
+            actual = 0
+
+    return mejor
+
+
+def construir_info_periodo(jugador, info_historica, participaciones_df, periodo):
+    if periodo == "Histórico":
+        return info_historica
+
+    historial_jugador = participaciones_df[
+        participaciones_df["jugador"] == jugador
+    ].copy()
+    historial_jugador = filtrar_historial_por_periodo(
+        historial_jugador,
+        periodo
+    )
+    historial_jugador = historial_jugador.sort_values(
+        ["fecha", "partido_id"]
+    )
+
+    resultados = historial_jugador["resultado_jugador"].tolist()
+    pj = len(resultados)
+    g = resultados.count("G")
+    e = resultados.count("E")
+    p = resultados.count("P")
+    winrate = round(g / pj * 100, 2) if pj else 0
+
+    datos = info_historica.copy()
+    datos["PJ"] = pj
+    datos["G"] = g
+    datos["E"] = e
+    datos["P"] = p
+    datos["WinRate"] = winrate
+    datos["mejor_racha_ganadora"] = calcular_racha_en_resultados(
+        resultados,
+        "G"
+    )
+    datos["peor_racha_perdedora"] = calcular_racha_en_resultados(
+        resultados,
+        "P"
+    )
+
+    return datos
+
+
+def obtener_forma_reciente(historial_jugador, cantidad=10):
+    return (
+        historial_jugador
+        .sort_values(["fecha", "partido_id"], ascending=[False, False])
+        .head(cantidad)
+        .sort_values(["fecha", "partido_id"])
+        .copy()
+    )
+
+
+def render_forma_reciente(historial_jugador):
+    ultimos = obtener_forma_reciente(historial_jugador)
+
+    if ultimos.empty:
+        st.info("No hay partidos recientes para mostrar.")
+        return
+
+    colores = {
+        "G": "#22C55E",
+        "E": "#FACC15",
+        "P": "#EF4444"
+    }
+
+    chips = []
+
+    for resultado in ultimos["resultado_jugador"].tolist():
+        chips.append(
+            "<span style='display:inline-block; padding:8px 12px; "
+            f"margin:3px; border-radius:999px; background:{colores.get(resultado, '#64748B')}; "
+            "color:#0B1120; font-weight:700;'>"
+            f"{resultado}</span>"
+        )
+
+    st.markdown("".join(chips), unsafe_allow_html=True)
+
+    pj = len(ultimos)
+    g = int((ultimos["resultado_jugador"] == "G").sum())
+    e = int((ultimos["resultado_jugador"] == "E").sum())
+    p = int((ultimos["resultado_jugador"] == "P").sum())
+    wr = g / pj * 100 if pj else 0
+
+    f1, f2, f3, f4 = st.columns(4)
+    f1.metric("PJ recientes", pj)
+    f2.metric("Victorias", g)
+    f3.metric("Empates / Derrotas", f"{e} / {p}")
+    f4.metric("WR reciente", f"{wr:.1f}%")
+
+
+def construir_tabla_ultimos_partidos(historial_jugador):
+    ultimos = (
+        historial_jugador
+        .sort_values(["fecha", "partido_id"], ascending=[False, False])
+        .head(10)
+        .copy()
+    )
+
+    if ultimos.empty:
+        return pd.DataFrame()
+
+    def marcador(fila):
+        if pd.isna(fila.get("goles_local")) or pd.isna(fila.get("goles_visitante")):
+            return "Sin datos"
+        return f"{numero_entero_seguro(fila.get('goles_local'))}-{numero_entero_seguro(fila.get('goles_visitante'))}"
+
+    def rival_equipo(fila):
+        if fila.get("equipo") == fila.get("equipo_local"):
+            return fila.get("equipo_visitante")
+        return fila.get("equipo_local")
+
+    tabla = pd.DataFrame(
+        {
+            "Fecha": ultimos["fecha"].dt.strftime("%d/%m/%Y"),
+            "Equipo": ultimos["equipo"],
+            "Resultado": ultimos["resultado_jugador"],
+            "Marcador": ultimos.apply(marcador, axis=1),
+            "Rival / Equipo rival": ultimos.apply(rival_equipo, axis=1)
+        }
+    )
+
+    return tabla
+
+
+def construir_rendimiento_por_equipo(historial_jugador):
+    if historial_jugador.empty:
+        return pd.DataFrame()
+
+    rendimiento = (
+        historial_jugador
+        .pivot_table(
+            index="equipo",
+            columns="resultado_jugador",
+            aggfunc="size",
+            fill_value=0
+        )
+        .reset_index()
+    )
+
+    rendimiento.columns.name = None
+
+    for columna in ["G", "E", "P"]:
+        if columna not in rendimiento.columns:
+            rendimiento[columna] = 0
+
+    rendimiento["PJ"] = rendimiento["G"] + rendimiento["E"] + rendimiento["P"]
+    rendimiento["Win Rate %"] = (
+        rendimiento["G"]
+        / rendimiento["PJ"].replace(0, pd.NA)
+        * 100
+    ).round(1).fillna(0)
+
+    return (
+        rendimiento[["equipo", "PJ", "G", "E", "P", "Win Rate %"]]
+        .rename(columns={"equipo": "Equipo"})
+        .sort_values(["PJ", "Win Rate %", "Equipo"], ascending=[False, False, True])
+    )
+
+
+def construir_grafico_rendimiento_equipo(rendimiento_df):
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Bar(
+            x=rendimiento_df["Equipo"],
+            y=rendimiento_df["PJ"],
+            name="PJ",
+            marker_color="#38BDF8",
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "PJ: %{y}"
+                "<extra></extra>"
+            )
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=rendimiento_df["Equipo"],
+            y=rendimiento_df["Win Rate %"],
+            mode="lines+markers",
+            name="Win Rate %",
+            yaxis="y2",
+            line={"color": "#FACC15", "width": 3},
+            marker={"size": 8, "color": "#FACC15"},
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "Win Rate: %{y:.1f}%"
+                "<extra></extra>"
+            )
+        )
+    )
+
+    fig.update_layout(
+        height=420,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"color": "white", "size": 13},
+        yaxis={"title": "PJ", "gridcolor": "rgba(255,255,255,0.12)"},
+        yaxis2={"title": "Win Rate %", "overlaying": "y", "side": "right"},
+        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "center", "x": 0.5},
+        hoverlabel={"bgcolor": "#111827", "font_color": "white"}
+    )
+
+    return fig
+
+
+def construir_wr_acumulado(historial_jugador):
+    historial = historial_jugador.sort_values(["fecha", "partido_id"]).copy()
+
+    if historial.empty:
+        return None
+
+    historial["PJ acumulado"] = range(1, len(historial) + 1)
+    historial["Victorias acumuladas"] = (
+        historial["resultado_jugador"] == "G"
+    ).cumsum()
+    historial["Win Rate acumulado"] = (
+        historial["Victorias acumuladas"]
+        / historial["PJ acumulado"]
+        * 100
+    )
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=historial["fecha"],
+            y=historial["Win Rate acumulado"],
+            mode="lines",
+            name="Win Rate acumulado",
+            line={"color": "#22C55E", "width": 3},
+            hovertemplate=(
+                "Fecha: %{x|%d/%m/%Y}<br>"
+                "WR acumulado: %{y:.1f}%"
+                "<extra></extra>"
+            )
+        )
+    )
+    fig.update_layout(
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"color": "white", "size": 13},
+        xaxis={"title": "Fecha", "gridcolor": "rgba(255,255,255,0.12)"},
+        yaxis={"title": "Win Rate acumulado %", "gridcolor": "rgba(255,255,255,0.12)"},
+        hoverlabel={"bgcolor": "#111827", "font_color": "white"}
+    )
+
+    return fig
+
+
+def obtener_posiciones_historicas(jugadores_df, jugador):
+    posiciones = {}
+    base = jugadores_df.copy()
+
+    def ranking_columna(dataframe, columna, filtro=None):
+        datos = dataframe.copy()
+
+        if filtro is not None:
+            datos = datos[filtro(datos)].copy()
+
+        if jugador not in datos["jugador"].values:
+            return None
+
+        datos[columna] = pd.to_numeric(
+            datos[columna],
+            errors="coerce"
+        ).fillna(0)
+
+        ranking = datos[columna].rank(
+            method="min",
+            ascending=False
+        )
+
+        valor = ranking[datos["jugador"] == jugador].iloc[0]
+
+        if pd.isna(valor):
+            return None
+
+        return int(valor)
+
+    posiciones["Ranking PJ"] = ranking_columna(base, "PJ")
+    posiciones["Ranking victorias"] = ranking_columna(base, "G")
+    posiciones["Ranking WR +50 PJ"] = ranking_columna(
+        base,
+        "WinRate",
+        filtro=lambda df: pd.to_numeric(
+            df["PJ"],
+            errors="coerce"
+        ).fillna(0) >= 50
+    )
+    posiciones["Ranking mejor racha"] = ranking_columna(
+        base,
+        "mejor_racha_ganadora"
+    )
+    posiciones["Ranking peor racha"] = ranking_columna(
+        base,
+        "peor_racha_perdedora"
+    )
+
+    return posiciones
+
+
+def construir_top_rivales(rivales_jugador):
+    if rivales_jugador.empty:
+        return pd.DataFrame()
+
+    tabla = rivales_jugador.copy()
+    tabla = tabla[tabla["pj"] >= 20].copy()
+
+    if tabla.empty:
+        return pd.DataFrame()
+
+    tabla = tabla.rename(
+        columns={
+            "rival": "Rival",
+            "pj": "PJ",
+            "victorias_jugador": "Victorias jugador",
+            "victorias_rival": "Victorias rival",
+            "empates": "Empates",
+            "winrate": "Win Rate %"
+        }
+    )
+
+    return (
+        tabla[["Rival", "PJ", "Victorias jugador", "Victorias rival", "Empates", "Win Rate %"]]
+        .sort_values(["PJ", "Win Rate %", "Rival"], ascending=[False, False, True])
+        .head(5)
+    )
+
+
+def construir_mejores_anios(evolucion_df):
+    if evolucion_df.empty:
+        return None
+
+    anio_mas_pj = evolucion_df.sort_values(["PJ", "Año"], ascending=[False, True]).iloc[0]
+    anio_mas_victorias = evolucion_df.sort_values(["PG", "Año"], ascending=[False, True]).iloc[0]
+    candidatos_wr = evolucion_df[evolucion_df["PJ"] >= 10].copy()
+
+    if candidatos_wr.empty:
+        anio_mejor_wr = evolucion_df.sort_values(["WinRate", "PJ", "Año"], ascending=[False, False, True]).iloc[0]
+    else:
+        anio_mejor_wr = candidatos_wr.sort_values(["WinRate", "PJ", "Año"], ascending=[False, False, True]).iloc[0]
+
+    return anio_mas_pj, anio_mas_victorias, anio_mejor_wr
+
+
+def construir_diferencias_comparacion(info_1, info_2, jugador_1, jugador_2):
+    diferencias = []
+    metricas = [
+        ("PJ", "PJ", "partidos"),
+        ("G", "Victorias", "victorias"),
+        ("WinRate", "Win Rate", "puntos"),
+        ("mejor_racha_ganadora", "Mejor racha", "partidos"),
+        ("peor_racha_perdedora", "Peor racha", "partidos")
+    ]
+
+    for columna, etiqueta, unidad in metricas:
+        valor_1 = numero_decimal_seguro(info_1.get(columna))
+        valor_2 = numero_decimal_seguro(info_2.get(columna))
+        diferencia = round(abs(valor_1 - valor_2), 1)
+
+        if valor_1 > valor_2:
+            diferencias.append(f"{etiqueta}: +{diferencia:g} {unidad} para {jugador_1}")
+        elif valor_2 > valor_1:
+            diferencias.append(f"{etiqueta}: +{diferencia:g} {unidad} para {jugador_2}")
+        else:
+            diferencias.append(f"{etiqueta}: sin diferencia")
+
+    return diferencias
+
+
+def obtener_quimica_dupla(datos_dupla):
+    pj = numero_entero_seguro(datos_dupla.get("PJ"))
+    wr = numero_decimal_seguro(datos_dupla.get("WinRate"))
+
+    if pj < 20:
+        return "Muestra chica: todavía hay pocos partidos juntos."
+
+    if pj >= 50 and wr >= 55:
+        return "Dupla muy efectiva: muchos partidos juntos y alto Win Rate."
+
+    if pj >= 50 and wr >= 45:
+        return "Dupla equilibrada: rendimiento sólido en una muestra importante."
+
+    if pj >= 50:
+        return "Dupla con rendimiento bajo: muchos partidos juntos, pero Win Rate debajo del 45%."
+
+    if wr >= 55:
+        return "Dupla prometedora: buen Win Rate, aunque con muestra moderada."
+
+    return "Dupla en desarrollo: muestra moderada y rendimiento mejorable."
+
+
 def construir_comparacion(info_1, info_2, jugador_1, jugador_2):
     datos = [
         {
@@ -936,6 +1366,8 @@ participaciones_historial = participaciones.merge(
             "fecha",
             "equipo_local",
             "equipo_visitante",
+            "goles_local",
+            "goles_visitante",
             "resultado_local"
         ]
     ],
@@ -1278,6 +1710,140 @@ with tab_perfil:
                 ).round(1).fillna(0)
 
             st.divider()
+            st.subheader("📌 Resumen del perfil")
+            st.info(
+                f"{jugador} registra {numero_entero_seguro(info.get('PJ'))} partidos históricos, "
+                f"con {numero_entero_seguro(info.get('G'))} victorias y "
+                f"{numero_decimal_seguro(info.get('WinRate')):.1f}% de Win Rate. "
+                f"Su rival más frecuente es {texto_seguro(info.get('rival_mas_frecuente'))}."
+            )
+
+            st.divider()
+            st.subheader("🔥 Forma reciente")
+            render_forma_reciente(historial)
+
+            st.subheader("📅 Últimos 10 partidos")
+            ultimos_partidos = construir_tabla_ultimos_partidos(historial)
+            if ultimos_partidos.empty:
+                st.info("No hay últimos partidos disponibles para mostrar.")
+            else:
+                st.dataframe(
+                    ultimos_partidos,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=380
+                )
+
+            st.divider()
+            st.subheader("🏟️ Rendimiento por equipo")
+            rendimiento_equipo = construir_rendimiento_por_equipo(historial)
+
+            if rendimiento_equipo.empty:
+                st.info("No hay rendimiento por equipo para mostrar.")
+            else:
+                equipo_mas_usado = rendimiento_equipo.iloc[0]
+                candidatos_mejor_equipo = rendimiento_equipo[
+                    rendimiento_equipo["PJ"] >= 20
+                ].copy()
+                if candidatos_mejor_equipo.empty:
+                    mejor_equipo_wr = rendimiento_equipo.sort_values(
+                        ["Win Rate %", "PJ", "Equipo"],
+                        ascending=[False, False, True]
+                    ).iloc[0]
+                else:
+                    mejor_equipo_wr = candidatos_mejor_equipo.sort_values(
+                        ["Win Rate %", "PJ", "Equipo"],
+                        ascending=[False, False, True]
+                    ).iloc[0]
+
+                e1, e2 = st.columns(2)
+                e1.info(
+                    "🏟️ Equipo más usado\n\n"
+                    f"**{texto_seguro(equipo_mas_usado['Equipo'])}**\n\n"
+                    f"{numero_entero_seguro(equipo_mas_usado['PJ'])} partidos"
+                )
+                e2.info(
+                    "🎯 Mejor rendimiento\n\n"
+                    f"**{texto_seguro(mejor_equipo_wr['Equipo'])}**\n\n"
+                    f"{numero_decimal_seguro(mejor_equipo_wr['Win Rate %']):.1f}% WR "
+                    f"en {numero_entero_seguro(mejor_equipo_wr['PJ'])} partidos"
+                )
+
+                st.plotly_chart(
+                    construir_grafico_rendimiento_equipo(rendimiento_equipo),
+                    use_container_width=True
+                )
+                st.dataframe(
+                    rendimiento_equipo,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=260
+                )
+
+            st.divider()
+            st.subheader("🏛️ Posiciones históricas")
+            posiciones = obtener_posiciones_historicas(
+                jugadores,
+                jugador
+            )
+            p1, p2, p3, p4, p5 = st.columns(5)
+            p1.metric("PJ", f"#{posiciones['Ranking PJ']}")
+            p2.metric("Victorias", f"#{posiciones['Ranking victorias']}")
+            p3.metric(
+                "Win Rate +50 PJ",
+                (
+                    f"#{posiciones['Ranking WR +50 PJ']}"
+                    if posiciones["Ranking WR +50 PJ"] is not None
+                    else "Sin ranking"
+                )
+            )
+            p4.metric("Mejor racha", f"#{posiciones['Ranking mejor racha']}")
+            p5.metric("Peor racha", f"#{posiciones['Ranking peor racha']}")
+
+            top_rivales = construir_top_rivales(rivales_jugador)
+            if not top_rivales.empty:
+                st.divider()
+                st.subheader("⚔️ Top 5 rivales por enfrentamientos")
+                st.dataframe(
+                    top_rivales,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=260
+                )
+
+            if not evolucion.empty:
+                mejores_anios = construir_mejores_anios(evolucion)
+                if mejores_anios is not None:
+                    anio_mas_pj, anio_mas_victorias, anio_mejor_wr = mejores_anios
+                    st.divider()
+                    st.subheader("📆 Mejores años")
+                    a1, a2, a3 = st.columns(3)
+                    a1.info(
+                        "📌 Año con más partidos\n\n"
+                        f"**{numero_entero_seguro(anio_mas_pj['Año'])}**\n\n"
+                        f"{numero_entero_seguro(anio_mas_pj['PJ'])} PJ"
+                    )
+                    a2.info(
+                        "🏆 Año con más victorias\n\n"
+                        f"**{numero_entero_seguro(anio_mas_victorias['Año'])}**\n\n"
+                        f"{numero_entero_seguro(anio_mas_victorias['PG'])} victorias"
+                    )
+                    a3.info(
+                        "🎯 Mejor año por Win Rate\n\n"
+                        f"**{numero_entero_seguro(anio_mejor_wr['Año'])}**\n\n"
+                        f"{numero_decimal_seguro(anio_mejor_wr['WinRate']):.1f}% WR"
+                    )
+
+            fig_wr_acumulado = construir_wr_acumulado(historial)
+            if fig_wr_acumulado is not None:
+                st.divider()
+                st.subheader("📈 Win Rate acumulado")
+                st.plotly_chart(
+                    fig_wr_acumulado,
+                    use_container_width=True
+                )
+
+            st.divider()
             st.subheader("📈 Evolución histórica")
 
             if evolucion.empty:
@@ -1368,17 +1934,42 @@ with tab_comparador:
             key="comparador_jugador_2"
         )
 
+    periodo_comparacion = st.selectbox(
+        "Período de comparación",
+        [
+            "Histórico",
+            "Últimos 12 meses",
+            "Últimos 3 años",
+            "Desde 2020"
+        ],
+        index=0,
+        key="periodo_comparacion_jugadores"
+    )
+
     if jugador_1 is None or jugador_2 is None:
         st.info("Seleccioná dos jugadores para ver la comparación.")
     elif jugador_1 == jugador_2:
         st.warning("Seleccioná dos jugadores distintos para comparar.")
     else:
-        info_1 = obtener_fila_jugador(jugadores, jugador_1)
-        info_2 = obtener_fila_jugador(jugadores, jugador_2)
+        info_1_base = obtener_fila_jugador(jugadores, jugador_1)
+        info_2_base = obtener_fila_jugador(jugadores, jugador_2)
 
-        if info_1 is None or info_2 is None:
+        if info_1_base is None or info_2_base is None:
             st.warning("No se encontraron datos para alguno de los jugadores seleccionados.")
         else:
+            info_1 = construir_info_periodo(
+                jugador_1,
+                info_1_base,
+                participaciones_historial,
+                periodo_comparacion
+            )
+            info_2 = construir_info_periodo(
+                jugador_2,
+                info_2_base,
+                participaciones_historial,
+                periodo_comparacion
+            )
+
             enfrentamiento = obtener_enfrentamiento(
                 rivales,
                 jugador_1,
@@ -1387,6 +1978,7 @@ with tab_comparador:
 
             st.divider()
             st.subheader(f"📊 {jugador_1} vs {jugador_2}")
+            st.caption(f"Período seleccionado: {periodo_comparacion}")
 
             c1, c2, c3, c4 = st.columns(4)
 
@@ -1421,6 +2013,15 @@ with tab_comparador:
                 fig_comparacion,
                 use_container_width=True
             )
+
+            st.subheader("➕ Diferencias principales")
+            for diferencia in construir_diferencias_comparacion(
+                info_1,
+                info_2,
+                jugador_1,
+                jugador_2
+            ):
+                st.info(diferencia)
 
             st.divider()
             st.subheader("🤝 Como dupla")
@@ -1472,6 +2073,11 @@ with tab_comparador:
                 v3.metric(
                     "Derrotas juntos",
                     numero_entero_seguro(datos_dupla.get("P"))
+                )
+
+                st.info(
+                    "🧪 Química de dupla: "
+                    + obtener_quimica_dupla(datos_dupla)
                 )
 
                 timeline_dupla = obtener_timeline_dupla(
