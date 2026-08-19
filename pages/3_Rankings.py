@@ -452,7 +452,7 @@ with tab_jugadores:
     mostrar_ranking(agregar_posicion(ranking_victorias))
 
     st.divider()
-    st.subheader(f"📈 Mejor Win Rate, mínimo {minimo_partidos} PJ")
+    st.subheader(f"📈 Mejor Win Rate")
     ranking_wr = (
         jugadores[jugadores["PJ"] >= minimo_partidos]
         .sort_values(["WinRate", "PJ", "G", "jugador"], ascending=[False, False, False, True])
@@ -464,7 +464,7 @@ with tab_jugadores:
     mostrar_ranking(agregar_posicion(ranking_wr))
 
     st.divider()
-    st.subheader(f"📉 Menor Win Rate, mínimo {minimo_partidos} PJ")
+    st.subheader(f"📉 Menor Win Rate")
     ranking_wr_bajo = (
         jugadores[jugadores["PJ"] >= minimo_partidos]
         .sort_values(["WinRate", "PJ", "P", "jugador"], ascending=[True, False, False, True])
@@ -505,7 +505,7 @@ with tab_equipos:
     mostrar_ranking(agregar_posicion(ranking_equipos_g))
 
     st.divider()
-    st.subheader(f"📈 Mejor Win Rate, mínimo {minimo_partidos} PJ")
+    st.subheader(f"📈 Mejor Win Rate")
     ranking_equipos_wr = (
         equipos[equipos["PJ"] >= minimo_partidos]
         .sort_values(["WinRate", "PJ", "G", "equipo"], ascending=[False, False, False, True])
@@ -536,7 +536,7 @@ with tab_duplas:
     mostrar_ranking(agregar_posicion(ranking_duplas_pj))
 
     st.divider()
-    st.subheader(f"🏆 Mejores duplas, mínimo {minimo_partidos} PJ")
+    st.subheader(f"🏆 Mejores duplas")
     ranking_duplas_wr = (
         parejas_nombre[parejas_nombre["PJ"] >= minimo_partidos]
         .sort_values(["WinRate", "PJ", "G", "jugador_1", "jugador_2"], ascending=[False, False, False, True, True])
@@ -560,7 +560,7 @@ with tab_duplas:
     mostrar_ranking(agregar_posicion(ranking_duplas_g))
 
     st.divider()
-    st.subheader(f"📉 Duplas con menor Win Rate, mínimo {minimo_partidos} PJ")
+    st.subheader(f"📉 Duplas con menor Win Rate")
     ranking_duplas_bajo = (
         parejas_nombre[parejas_nombre["PJ"] >= minimo_partidos]
         .sort_values(["WinRate", "PJ", "P", "jugador_1", "jugador_2"], ascending=[True, False, False, True, True])
