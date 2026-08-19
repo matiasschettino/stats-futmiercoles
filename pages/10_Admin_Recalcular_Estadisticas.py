@@ -1442,7 +1442,7 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         st.subheader("👀 Vista previa jugadores")
         st.dataframe(
             jugadores_master_nuevo
-            .sort_values("pj", ascending=False)
+            .sort_values("PJ", ascending=False)
             .head(30),
             use_container_width=True,
             hide_index=True
@@ -1451,7 +1451,7 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         st.subheader("🛡️ Vista previa equipos_master")
         st.dataframe(
             equipos_master_nuevo
-            .sort_values("pj", ascending=False)
+            .sort_values("PJ", ascending=False)
             .head(30),
             use_container_width=True,
             hide_index=True
