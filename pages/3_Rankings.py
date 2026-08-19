@@ -101,7 +101,9 @@ def mostrar_podio(dataframe, columna_nombre, columna_valor, sufijo="", cantidad=
     for indice, (_, fila) in enumerate(podio.iterrows()):
         valor = fila.get(columna_valor)
 
-        if isinstance(valor, float):
+        if isinstance(valor, float) and valor.is_integer():
+            valor_texto = f"{int(valor)}{sufijo}"
+        elif isinstance(valor, float):
             valor_texto = f"{valor:.1f}{sufijo}"
         else:
             valor_texto = f"{valor}{sufijo}"
@@ -402,7 +404,7 @@ with col_cantidad:
     cantidad_ranking = st.selectbox(
         "Cantidad a mostrar",
         [10, 20, 30, 50],
-        index=1
+        index=0
     )
 
 
@@ -484,6 +486,7 @@ with tab_equipos:
         equipos
         .sort_values(["PJ", "G", "WinRate", "equipo"], ascending=[False, False, False, True])
         [["equipo", "PJ", "G", "E", "P", "WinRate"]]
+        .head(5)
         .rename(columns={"equipo": "Equipo", "WinRate": "Win Rate %"})
     )
     mostrar_podio(ranking_equipos_pj, "Equipo", "PJ", " PJ")
@@ -495,7 +498,8 @@ with tab_equipos:
         equipos
         .sort_values(["G", "PJ", "WinRate", "equipo"], ascending=[False, False, False, True])
         [["equipo", "G", "PJ", "E", "P", "WinRate"]]
-        .rename(columns={"equipo": "Equipo", "G": "Victorias", "WinRate": "Win Rate %"})
+        .head(5)
+        .rename(columns={"equipo": "Equipo", "G": "Victorias", "Win Rate": "Win Rate %", "WinRate": "Win Rate %"})
     )
     mostrar_podio(ranking_equipos_g, "Equipo", "Victorias", " victorias")
     mostrar_ranking(agregar_posicion(ranking_equipos_g))
@@ -506,6 +510,7 @@ with tab_equipos:
         equipos[equipos["PJ"] >= minimo_partidos]
         .sort_values(["WinRate", "PJ", "G", "equipo"], ascending=[False, False, False, True])
         [["equipo", "PJ", "G", "E", "P", "WinRate"]]
+        .head(5)
         .rename(columns={"equipo": "Equipo", "WinRate": "Win Rate %"})
     )
     mostrar_podio(ranking_equipos_wr, "Equipo", "Win Rate %", "%")
@@ -597,7 +602,7 @@ with tab_rivalidades:
         mostrar_ranking(agregar_posicion(ranking_rivalidades_pj))
 
         st.divider()
-        st.subheader(f"⚖️ Mano a mano más parejos, mínimo {minimo_partidos} enfrentamientos")
+        st.subheader("⚖️ Mano a mano más parejos")
         ranking_parejos = preparar_mano_a_mano_parejo(rivales, minimo_partidos).head(cantidad_ranking)
         if not ranking_parejos.empty:
             ranking_parejos["Rivalidad"] = ranking_parejos["Jugador 1"] + " vs " + ranking_parejos["Jugador 2"]
@@ -605,9 +610,15 @@ with tab_rivalidades:
         mostrar_ranking(agregar_posicion(ranking_parejos))
 
         st.divider()
-        st.subheader(f"👑 Mayores paternidades, mínimo {minimo_partidos} enfrentamientos")
+        st.subheader("👑 Mayores paternidades")
         ranking_paternidades = preparar_mayores_paternidades(rivales, minimo_partidos).head(cantidad_ranking)
-        mostrar_podio(ranking_paternidades, "Dominador", "Diferencia", " diferencia")
+        if not ranking_paternidades.empty:
+            ranking_paternidades["Paternidad"] = (
+                ranking_paternidades["Dominador"]
+                + " sobre "
+                + ranking_paternidades["Rival"]
+            )
+        mostrar_podio(ranking_paternidades, "Paternidad", "Diferencia", " diferencia")
         mostrar_ranking(agregar_posicion(ranking_paternidades))
 
 
@@ -642,6 +653,9 @@ with tab_rachas:
         .head(cantidad_ranking)
         .rename(columns={"jugador": "Jugador", "racha_activa": "Victorias consecutivas actuales", "WinRate": "Win Rate %"})
     )
+    for columna in ["Victorias consecutivas actuales", "PJ", "G"]:
+        if columna in ranking_positivo.columns:
+            ranking_positivo[columna] = pd.to_numeric(ranking_positivo[columna], errors="coerce").fillna(0).astype(int)
     mostrar_podio(ranking_positivo, "Jugador", "Victorias consecutivas actuales", " victorias")
     mostrar_ranking(agregar_posicion(ranking_positivo), alto=360)
 
@@ -654,6 +668,9 @@ with tab_rachas:
         .head(cantidad_ranking)
         .rename(columns={"jugador": "Jugador", "racha_activa": "Derrotas consecutivas actuales", "WinRate": "Win Rate %"})
     )
+    for columna in ["Derrotas consecutivas actuales", "PJ", "P"]:
+        if columna in ranking_negativo.columns:
+            ranking_negativo[columna] = pd.to_numeric(ranking_negativo[columna], errors="coerce").fillna(0).astype(int)
     mostrar_podio(ranking_negativo, "Jugador", "Derrotas consecutivas actuales", " derrotas")
     mostrar_ranking(agregar_posicion(ranking_negativo), alto=360)
 
@@ -681,6 +698,9 @@ with tab_rachas:
         )
     )
     ranking_mejores_rachas = formatear_fechas(ranking_mejores_rachas, ["Desde", "Hasta"])
+    for columna in ["Victorias consecutivas", "Partidos totales", "Victorias totales"]:
+        if columna in ranking_mejores_rachas.columns:
+            ranking_mejores_rachas[columna] = pd.to_numeric(ranking_mejores_rachas[columna], errors="coerce").fillna(0).astype(int)
     mostrar_podio(ranking_mejores_rachas, "Jugador", "Victorias consecutivas", " victorias")
     mostrar_ranking(agregar_posicion(ranking_mejores_rachas), alto=420)
 
@@ -708,5 +728,8 @@ with tab_rachas:
         )
     )
     ranking_peores_rachas = formatear_fechas(ranking_peores_rachas, ["Desde", "Hasta"])
+    for columna in ["Derrotas consecutivas", "Partidos totales", "Derrotas totales"]:
+        if columna in ranking_peores_rachas.columns:
+            ranking_peores_rachas[columna] = pd.to_numeric(ranking_peores_rachas[columna], errors="coerce").fillna(0).astype(int)
     mostrar_podio(ranking_peores_rachas, "Jugador", "Derrotas consecutivas", " derrotas")
     mostrar_ranking(agregar_posicion(ranking_peores_rachas), alto=420)
