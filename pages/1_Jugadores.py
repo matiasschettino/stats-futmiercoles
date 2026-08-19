@@ -66,6 +66,24 @@ def numero_decimal_seguro(valor):
     return float(valor)
 
 
+def emoji_equipo_favorito(equipo):
+    equipo_texto = texto_seguro(equipo, "").lower()
+
+    if "pesca" in equipo_texto or "pescas" in equipo_texto:
+        return "🐟"
+
+    if "dealer" in equipo_texto or "dealers" in equipo_texto:
+        return "🚗"
+
+    if "biologo" in equipo_texto or "biólogo" in equipo_texto:
+        return "🦠"
+
+    if "dhl" in equipo_texto:
+        return "📦"
+
+    return "🏅"
+
+
 def etiqueta_racha(tipo_racha, cantidad):
     cantidad = numero_entero_seguro(cantidad)
     tipo_racha = texto_seguro(tipo_racha, "Sin datos")
@@ -1072,7 +1090,14 @@ with tab_perfil:
                 "Sin datos"
             )
 
-            st.header(f"🏅 {jugador}")
+            emoji_equipo = emoji_equipo_favorito(
+                info.get("equipo_favorito")
+            )
+
+            st.header(f"{emoji_equipo} {jugador}")
+            st.caption(
+                "Referencias de equipo favorito: 🐟 Pescas · 🚗 Dealers · 🦠 Biólogos · 📦 DHL"
+            )
 
             c1, c2, c3, c4 = st.columns(4)
 
@@ -1102,11 +1127,6 @@ with tab_perfil:
             c1, c2 = st.columns(2)
 
             with c1:
-                st.info(
-                    "🏟️ Equipo favorito: "
-                    f"{texto_seguro(info.get('equipo_favorito'))}"
-                )
-
                 if companero_frecuente is not None:
                     st.info(
                         "🤝 Compañero más frecuente: "
@@ -1141,12 +1161,6 @@ with tab_perfil:
                 else:
                     st.info("📉 Peor compañero: Sin datos")
 
-                st.info(
-                    f"🔥 Mejor racha histórica: {mejor_racha} victorias"
-                )
-                st.info(
-                    f"📉 Peor racha histórica: {peor_racha} derrotas"
-                )
 
             rivales_jugador = obtener_rivales_jugador(
                 rivales,
@@ -1154,93 +1168,88 @@ with tab_perfil:
             )
 
             if not rivales_jugador.empty:
-                st.divider()
-                st.subheader("⚔️ Rivales destacados")
-
                 rivales_con_minimo = rivales_jugador[
-                    rivales_jugador["pj"] >= 5
+                    rivales_jugador["pj"] >= 20
                 ].copy()
 
-                rival_mas_vencido = (
-                    rivales_jugador
-                    .sort_values(
-                        ["victorias_jugador", "pj", "rival"],
-                        ascending=[False, False, True]
-                    )
-                    .iloc[0]
-                )
+                if not rivales_con_minimo.empty:
+                    st.divider()
+                    st.subheader("⚔️ Rivales destacados")
 
-                rival_que_mas_le_gano = (
-                    rivales_jugador
-                    .sort_values(
-                        ["victorias_rival", "pj", "rival"],
-                        ascending=[False, False, True]
-                    )
-                    .iloc[0]
-                )
-
-                base_porcentaje = (
-                    rivales_con_minimo
-                    if not rivales_con_minimo.empty
-                    else rivales_jugador
-                )
-
-                mejor_porcentaje = (
-                    base_porcentaje
-                    .sort_values(
-                        ["winrate", "pj", "rival"],
-                        ascending=[False, False, True]
-                    )
-                    .iloc[0]
-                )
-
-                peor_porcentaje = (
-                    base_porcentaje
-                    .sort_values(
-                        ["winrate", "pj", "rival"],
-                        ascending=[True, False, True]
-                    )
-                    .iloc[0]
-                )
-
-                fila_1_col_1, fila_1_col_2 = st.columns(2)
-                fila_2_col_1, fila_2_col_2 = st.columns(2)
-
-                with fila_1_col_1:
-                    st.info(
-                        "✅ Más victorias contra\n\n"
-                        f"**{texto_seguro(rival_mas_vencido['rival'])}**\n\n"
-                        f"{numero_entero_seguro(rival_mas_vencido['victorias_jugador'])} victorias "
-                        f"en {numero_entero_seguro(rival_mas_vencido['pj'])} enfrentamientos"
+                    rival_mas_vencido = (
+                        rivales_con_minimo
+                        .sort_values(
+                            ["victorias_jugador", "pj", "rival"],
+                            ascending=[False, False, True]
+                        )
+                        .iloc[0]
                     )
 
-                with fila_1_col_2:
-                    st.info(
-                        "📈 Mejor Win Rate vs rival\n\n"
-                        f"**{texto_seguro(mejor_porcentaje['rival'])}**\n\n"
-                        f"{numero_decimal_seguro(mejor_porcentaje['winrate']):.1f}% WR "
-                        f"en {numero_entero_seguro(mejor_porcentaje['pj'])} enfrentamientos"
+                    rival_que_mas_le_gano = (
+                        rivales_con_minimo
+                        .sort_values(
+                            ["victorias_rival", "pj", "rival"],
+                            ascending=[False, False, True]
+                        )
+                        .iloc[0]
                     )
 
-                with fila_2_col_1:
-                    st.info(
-                        "⚠️ Más derrotas contra\n\n"
-                        f"**{texto_seguro(rival_que_mas_le_gano['rival'])}**\n\n"
-                        f"{numero_entero_seguro(rival_que_mas_le_gano['victorias_rival'])} derrotas "
-                        f"en {numero_entero_seguro(rival_que_mas_le_gano['pj'])} enfrentamientos"
+                    mejor_porcentaje = (
+                        rivales_con_minimo
+                        .sort_values(
+                            ["winrate", "pj", "rival"],
+                            ascending=[False, False, True]
+                        )
+                        .iloc[0]
                     )
 
-                with fila_2_col_2:
-                    st.info(
-                        "📉 Peor Win Rate vs rival\n\n"
-                        f"**{texto_seguro(peor_porcentaje['rival'])}**\n\n"
-                        f"{numero_decimal_seguro(peor_porcentaje['winrate']):.1f}% WR "
-                        f"en {numero_entero_seguro(peor_porcentaje['pj'])} enfrentamientos"
+                    peor_porcentaje = (
+                        rivales_con_minimo
+                        .sort_values(
+                            ["winrate", "pj", "rival"],
+                            ascending=[True, False, True]
+                        )
+                        .iloc[0]
                     )
 
-                st.caption(
-                    "Para mejor y peor Win Rate vs rival se usa mínimo de 5 enfrentamientos cuando hay datos suficientes."
-                )
+                    fila_1_col_1, fila_1_col_2 = st.columns(2)
+                    fila_2_col_1, fila_2_col_2 = st.columns(2)
+
+                    with fila_1_col_1:
+                        st.info(
+                            "✅ Más victorias contra\n\n"
+                            f"**{texto_seguro(rival_mas_vencido['rival'])}**\n\n"
+                            f"{numero_entero_seguro(rival_mas_vencido['victorias_jugador'])} victorias "
+                            f"en {numero_entero_seguro(rival_mas_vencido['pj'])} enfrentamientos"
+                        )
+
+                    with fila_1_col_2:
+                        st.info(
+                            "📈 Mejor Win Rate vs rival\n\n"
+                            f"**{texto_seguro(mejor_porcentaje['rival'])}**\n\n"
+                            f"{numero_decimal_seguro(mejor_porcentaje['winrate']):.1f}% WR "
+                            f"en {numero_entero_seguro(mejor_porcentaje['pj'])} enfrentamientos"
+                        )
+
+                    with fila_2_col_1:
+                        st.info(
+                            "⚠️ Más derrotas contra\n\n"
+                            f"**{texto_seguro(rival_que_mas_le_gano['rival'])}**\n\n"
+                            f"{numero_entero_seguro(rival_que_mas_le_gano['victorias_rival'])} derrotas "
+                            f"en {numero_entero_seguro(rival_que_mas_le_gano['pj'])} enfrentamientos"
+                        )
+
+                    with fila_2_col_2:
+                        st.info(
+                            "📉 Peor Win Rate vs rival\n\n"
+                            f"**{texto_seguro(peor_porcentaje['rival'])}**\n\n"
+                            f"{numero_decimal_seguro(peor_porcentaje['winrate']):.1f}% WR "
+                            f"en {numero_entero_seguro(peor_porcentaje['pj'])} enfrentamientos"
+                        )
+
+                    st.caption(
+                        "Se consideran solo rivales con al menos 20 enfrentamientos."
+                    )
 
             historial = participaciones_historial[
                 participaciones_historial["jugador"] == jugador
@@ -1327,79 +1336,6 @@ with tab_perfil:
                     use_container_width=True
                 )
 
-            st.divider()
-            st.subheader("🤝 Analizar dupla")
-
-            opciones_companeros = sorted(
-                jugadores.loc[
-                    jugadores["jugador"] != jugador,
-                    "jugador"
-                ]
-                .dropna()
-                .astype(str)
-                .unique()
-            )
-
-            companero = st.selectbox(
-                "Seleccionar segundo jugador",
-                opciones_companeros,
-                index=None,
-                placeholder="Seleccioná otro jugador...",
-                key="selector_dupla"
-            )
-
-            if companero is None:
-                st.info("Seleccioná un segundo jugador para analizar la dupla.")
-            else:
-                datos_dupla = obtener_dupla(
-                    parejas,
-                    jugador,
-                    companero
-                )
-
-                if datos_dupla is not None:
-                    st.subheader(f"📊 {jugador} + {companero}")
-
-                    c1, c2, c3, c4, c5 = st.columns(5)
-
-                    c1.metric(
-                        "PJ Juntos",
-                        numero_entero_seguro(datos_dupla["PJ"])
-                    )
-                    c2.metric(
-                        "Victorias",
-                        numero_entero_seguro(datos_dupla["G"])
-                    )
-                    c3.metric(
-                        "Empates",
-                        numero_entero_seguro(datos_dupla["E"])
-                    )
-                    c4.metric(
-                        "Derrotas",
-                        numero_entero_seguro(datos_dupla["P"])
-                    )
-                    c5.metric(
-                        "Win Rate",
-                        f"{numero_decimal_seguro(datos_dupla['WinRate']):.1f}%"
-                    )
-
-                    timeline_dupla = obtener_timeline_dupla(
-                        participaciones_historial,
-                        jugador,
-                        companero
-                    )
-
-                    if not timeline_dupla.empty:
-                        st.subheader("📅 Partidos juntos por año")
-                        fig_dupla = construir_grafico_dupla_timeline(
-                            timeline_dupla
-                        )
-                        st.plotly_chart(
-                            fig_dupla,
-                            use_container_width=True
-                        )
-                else:
-                    st.warning("No se encontraron partidos juntos.")
 
 
 # ==================================================
@@ -1503,13 +1439,7 @@ with tab_comparador:
                 pj_jugador_2 = max(numero_entero_seguro(info_2.get("PJ")), 1)
                 porcentaje_jugador_1 = pj_juntos / pj_jugador_1 * 100
                 porcentaje_jugador_2 = pj_juntos / pj_jugador_2 * 100
-                record_dupla = (
-                    f"{numero_entero_seguro(datos_dupla.get('G'))}-"
-                    f"{numero_entero_seguro(datos_dupla.get('E'))}-"
-                    f"{numero_entero_seguro(datos_dupla.get('P'))}"
-                )
-
-                d1, d2, d3, d4, d5 = st.columns(5)
+                d1, d2, d3, d4 = st.columns(4)
 
                 d1.metric(
                     "PJ juntos",
@@ -1526,14 +1456,39 @@ with tab_comparador:
                     help=f"Porcentaje de partidos de {jugador_2} que jugó junto a {jugador_1}."
                 )
                 d4.metric(
-                    "Récord juntos",
-                    record_dupla,
-                    help="Formato: victorias-empates-derrotas"
-                )
-                d5.metric(
                     "WR dupla",
                     f"{numero_decimal_seguro(datos_dupla.get('WinRate')):.1f}%"
                 )
+
+                v1, v2, v3 = st.columns(3)
+                v1.metric(
+                    "Victorias juntos",
+                    numero_entero_seguro(datos_dupla.get("G"))
+                )
+                v2.metric(
+                    "Empates juntos",
+                    numero_entero_seguro(datos_dupla.get("E"))
+                )
+                v3.metric(
+                    "Derrotas juntos",
+                    numero_entero_seguro(datos_dupla.get("P"))
+                )
+
+                timeline_dupla = obtener_timeline_dupla(
+                    participaciones_historial,
+                    jugador_1,
+                    jugador_2
+                )
+
+                if not timeline_dupla.empty:
+                    st.subheader("📅 Partidos juntos por año")
+                    fig_dupla = construir_grafico_dupla_timeline(
+                        timeline_dupla
+                    )
+                    st.plotly_chart(
+                        fig_dupla,
+                        use_container_width=True
+                    )
 
             st.divider()
             st.subheader("⚔️ Enfrentamiento directo")
