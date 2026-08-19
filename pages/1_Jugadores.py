@@ -596,6 +596,23 @@ def render_forma_reciente(historial_jugador):
     f4.metric("WR reciente", f"{wr:.1f}%")
 
 
+def construir_chips_forma_reciente(historial_jugador):
+    ultimos = obtener_forma_reciente(historial_jugador)
+    if ultimos.empty:
+        return ""
+    colores = {"G": "#22C55E", "E": "#FACC15", "P": "#EF4444"}
+    chips = []
+    for resultado in ultimos["resultado_jugador"].tolist():
+        chips.append(
+            "<span style='display:inline-flex; align-items:center; justify-content:center; "
+            "width:30px; height:30px; margin:2px; border-radius:999px; "
+            f"background:{colores.get(resultado, '#64748B')}; color:#0B1120; "
+            "font-weight:800; font-size:14px;'>"
+            f"{resultado}</span>"
+        )
+    return "".join(chips)
+
+
 def construir_tabla_ultimos_partidos(historial_jugador):
     ultimos = (
         historial_jugador
@@ -1522,14 +1539,25 @@ with tab_perfil:
                 "Sin datos"
             )
 
+            historial = participaciones_historial[
+                participaciones_historial["jugador"] == jugador
+            ].copy()
+
             emoji_equipo = emoji_equipo_favorito(
                 info.get("equipo_favorito")
             )
 
-            st.header(f"{emoji_equipo} {jugador}")
-            st.caption(
-                "Referencias de equipo favorito: 🐟 Pescas · 🚗 Dealers · 🦠 Biólogos · 📦 DHL"
-            )
+            header_col, forma_col = st.columns([2, 1])
+            with header_col:
+                st.header(f"{emoji_equipo} {jugador}")
+                st.caption(
+                    "Referencias de equipo favorito: 🐟 Pescas · 🚗 Dealers · 🦠 Biólogos · 📦 DHL"
+                )
+            with forma_col:
+                chips_forma = construir_chips_forma_reciente(historial)
+                if chips_forma:
+                    st.caption("Forma reciente")
+                    st.markdown(chips_forma, unsafe_allow_html=True)
 
             c1, c2, c3, c4 = st.columns(4)
 
@@ -1683,10 +1711,6 @@ with tab_perfil:
                         "Se consideran solo rivales con al menos 20 enfrentamientos."
                     )
 
-            historial = participaciones_historial[
-                participaciones_historial["jugador"] == jugador
-            ].copy()
-
             historial["Año"] = historial["fecha"].dt.year
 
             evolucion = (
@@ -1710,33 +1734,11 @@ with tab_perfil:
                 ).round(1).fillna(0)
 
             st.divider()
-            st.subheader("📌 Resumen del perfil")
-            st.info(
-                f"{jugador} registra {numero_entero_seguro(info.get('PJ'))} partidos históricos, "
-                f"con {numero_entero_seguro(info.get('G'))} victorias y "
-                f"{numero_decimal_seguro(info.get('WinRate')):.1f}% de Win Rate. "
-                f"Su rival más frecuente es {texto_seguro(info.get('rival_mas_frecuente'))}."
-            )
-
-            st.divider()
-            st.subheader("🔥 Forma reciente")
-            render_forma_reciente(historial)
-
-            st.subheader("📅 Últimos 10 partidos")
-            ultimos_partidos = construir_tabla_ultimos_partidos(historial)
-            if ultimos_partidos.empty:
-                st.info("No hay últimos partidos disponibles para mostrar.")
-            else:
-                st.dataframe(
-                    ultimos_partidos,
-                    use_container_width=True,
-                    hide_index=True,
-                    height=380
-                )
-
-            st.divider()
             st.subheader("🏟️ Rendimiento por equipo")
             rendimiento_equipo = construir_rendimiento_por_equipo(historial)
+
+            if not rendimiento_equipo.empty:
+                rendimiento_equipo = rendimiento_equipo.head(4).copy()
 
             if rendimiento_equipo.empty:
                 st.info("No hay rendimiento por equipo para mostrar.")
@@ -1772,12 +1774,6 @@ with tab_perfil:
                 st.plotly_chart(
                     construir_grafico_rendimiento_equipo(rendimiento_equipo),
                     use_container_width=True
-                )
-                st.dataframe(
-                    rendimiento_equipo,
-                    use_container_width=True,
-                    hide_index=True,
-                    height=260
                 )
 
             st.divider()
@@ -1833,15 +1829,6 @@ with tab_perfil:
                         f"**{numero_entero_seguro(anio_mejor_wr['Año'])}**\n\n"
                         f"{numero_decimal_seguro(anio_mejor_wr['WinRate']):.1f}% WR"
                     )
-
-            fig_wr_acumulado = construir_wr_acumulado(historial)
-            if fig_wr_acumulado is not None:
-                st.divider()
-                st.subheader("📈 Win Rate acumulado")
-                st.plotly_chart(
-                    fig_wr_acumulado,
-                    use_container_width=True
-                )
 
             st.divider()
             st.subheader("📈 Evolución histórica")
@@ -1902,6 +1889,27 @@ with tab_perfil:
                     use_container_width=True
                 )
 
+            st.divider()
+            st.subheader("📅 Últimos 10 partidos")
+            ultimos_partidos = construir_tabla_ultimos_partidos(historial)
+            if ultimos_partidos.empty:
+                st.info("No hay últimos partidos disponibles para mostrar.")
+            else:
+                st.dataframe(
+                    ultimos_partidos,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=380
+                )
+
+            fig_wr_acumulado = construir_wr_acumulado(historial)
+            if fig_wr_acumulado is not None:
+                st.divider()
+                st.subheader("📈 Win Rate acumulado")
+                st.plotly_chart(
+                    fig_wr_acumulado,
+                    use_container_width=True
+                )
 
 
 # ==================================================
