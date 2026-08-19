@@ -359,6 +359,104 @@ def construir_barras_comparacion(info_1, info_2, jugador_1, jugador_2):
     return fig
 
 
+def construir_grafico_enfrentamiento(enfrentamiento, jugador_1, jugador_2):
+    total = max(numero_entero_seguro(enfrentamiento.get("pj")), 1)
+    victorias_1 = numero_entero_seguro(enfrentamiento.get("victorias_jugador_1"))
+    victorias_2 = numero_entero_seguro(enfrentamiento.get("victorias_jugador_2"))
+    empates = numero_entero_seguro(enfrentamiento.get("empates"))
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Bar(
+            y=["Enfrentamiento directo"],
+            x=[victorias_1],
+            name=f"Victorias {jugador_1}",
+            orientation="h",
+            marker_color="#00C2FF",
+            text=[f"{victorias_1}"],
+            textposition="inside",
+            hovertemplate=(
+                f"<b>{jugador_1}</b><br>"
+                "Victorias directas: %{x}<br>"
+                f"Participación: {victorias_1 / total * 100:.1f}%"
+                "<extra></extra>"
+            )
+        )
+    )
+
+    fig.add_trace(
+        go.Bar(
+            y=["Enfrentamiento directo"],
+            x=[empates],
+            name="Empates",
+            orientation="h",
+            marker_color="#94A3B8",
+            text=[f"{empates}"],
+            textposition="inside",
+            hovertemplate=(
+                "<b>Empates</b><br>"
+                "Empates: %{x}<br>"
+                f"Participación: {empates / total * 100:.1f}%"
+                "<extra></extra>"
+            )
+        )
+    )
+
+    fig.add_trace(
+        go.Bar(
+            y=["Enfrentamiento directo"],
+            x=[victorias_2],
+            name=f"Victorias {jugador_2}",
+            orientation="h",
+            marker_color="#FFB000",
+            text=[f"{victorias_2}"],
+            textposition="inside",
+            hovertemplate=(
+                f"<b>{jugador_2}</b><br>"
+                "Victorias directas: %{x}<br>"
+                f"Participación: {victorias_2 / total * 100:.1f}%"
+                "<extra></extra>"
+            )
+        )
+    )
+
+    fig.update_layout(
+        height=260,
+        barmode="stack",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={
+            "color": "white",
+            "size": 13
+        },
+        xaxis={
+            "title": "Partidos enfrentados",
+            "range": [0, total],
+            "gridcolor": "rgba(255,255,255,0.15)"
+        },
+        yaxis={
+            "title": "",
+            "showticklabels": False
+        },
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.05,
+            "xanchor": "center",
+            "x": 0.5
+        },
+        margin={
+            "l": 20,
+            "r": 20,
+            "t": 70,
+            "b": 40
+        }
+    )
+
+    return fig
+
+
 def resumen_comparacion(info_1, info_2, jugador_1, jugador_2, enfrentamiento):
     mensajes = []
 
@@ -1001,35 +1099,11 @@ with tab_comparador:
                 f"{numero_decimal_seguro(info_2.get('WinRate')):.1f}%"
             )
 
-            st.subheader("📌 Resumen automático")
-            for mensaje in resumen_comparacion(
-                info_1,
-                info_2,
-                jugador_1,
-                jugador_2,
-                enfrentamiento
-            ):
-                st.info(mensaje)
-
-            comparacion = construir_comparacion(
-                info_1,
-                info_2,
-                jugador_1,
-                jugador_2
-            )
-
-            st.subheader("📋 Comparación general")
-            st.dataframe(
-                comparacion,
-                use_container_width=True,
-                hide_index=True,
-                height=430
-            )
-
             st.divider()
             st.subheader("📊 Comparación visual")
             st.caption(
-                "Este gráfico muestra valores reales por métrica. Para métricas con escalas distintas, interpretalo como apoyo visual de la tabla."
+                "El gráfico reemplaza la tabla comparativa para evitar duplicar información. "
+                "Las barras muestran valores reales por métrica."
             )
 
             fig_comparacion = construir_barras_comparacion(
@@ -1056,26 +1130,37 @@ with tab_comparador:
             if datos_dupla is None:
                 st.info("No se encontraron partidos juntos entre estos jugadores.")
             else:
+                pj_juntos = numero_entero_seguro(datos_dupla.get("PJ"))
+                pj_jugador_1 = max(numero_entero_seguro(info_1.get("PJ")), 1)
+                pj_jugador_2 = max(numero_entero_seguro(info_2.get("PJ")), 1)
+                porcentaje_jugador_1 = pj_juntos / pj_jugador_1 * 100
+                porcentaje_jugador_2 = pj_juntos / pj_jugador_2 * 100
+
                 d1, d2, d3, d4, d5 = st.columns(5)
 
                 d1.metric(
                     "PJ juntos",
-                    numero_entero_seguro(datos_dupla.get("PJ"))
+                    pj_juntos
                 )
                 d2.metric(
-                    "Victorias",
-                    numero_entero_seguro(datos_dupla.get("G"))
+                    f"% de PJ de {jugador_1}",
+                    f"{porcentaje_jugador_1:.1f}%"
                 )
                 d3.metric(
-                    "Empates",
-                    numero_entero_seguro(datos_dupla.get("E"))
+                    f"% de PJ de {jugador_2}",
+                    f"{porcentaje_jugador_2:.1f}%"
                 )
                 d4.metric(
-                    "Derrotas",
-                    numero_entero_seguro(datos_dupla.get("P"))
+                    "Récord juntos",
+                    (
+                        f"{numero_entero_seguro(datos_dupla.get('G'))}-"
+                        f"{numero_entero_seguro(datos_dupla.get('E'))}-"
+                        f"{numero_entero_seguro(datos_dupla.get('P'))}"
+                    ),
+                    help="Formato: victorias-empates-derrotas"
                 )
                 d5.metric(
-                    "Win Rate",
+                    "Win Rate dupla",
                     f"{numero_decimal_seguro(datos_dupla.get('WinRate')):.1f}%"
                 )
 
@@ -1085,61 +1170,32 @@ with tab_comparador:
             if enfrentamiento is None:
                 st.info("No se encontraron enfrentamientos directos entre estos jugadores.")
             else:
-                e1, e2, e3, e4, e5, e6 = st.columns(6)
-
-                e1.metric(
-                    "PJ enfrentados",
-                    enfrentamiento["pj"]
-                )
-                e2.metric(
-                    f"Victorias {jugador_1}",
-                    enfrentamiento["victorias_jugador_1"]
-                )
-                e3.metric(
-                    f"Victorias {jugador_2}",
-                    enfrentamiento["victorias_jugador_2"]
-                )
-                e4.metric(
-                    "Empates",
-                    enfrentamiento["empates"]
-                )
-                e5.metric(
-                    f"WR {jugador_1}",
-                    f"{enfrentamiento['winrate_jugador_1']:.1f}%"
-                )
-                e6.metric(
-                    f"WR {jugador_2}",
-                    f"{enfrentamiento['winrate_jugador_2']:.1f}%"
+                fig_enfrentamiento = construir_grafico_enfrentamiento(
+                    enfrentamiento,
+                    jugador_1,
+                    jugador_2
                 )
 
-                tabla_enfrentamiento = pd.DataFrame(
-                    [
-                        {
-                            "Métrica": "PJ enfrentados",
-                            jugador_1: enfrentamiento["pj"],
-                            jugador_2: enfrentamiento["pj"]
-                        },
-                        {
-                            "Métrica": "Victorias directas",
-                            jugador_1: enfrentamiento["victorias_jugador_1"],
-                            jugador_2: enfrentamiento["victorias_jugador_2"]
-                        },
-                        {
-                            "Métrica": "Empates",
-                            jugador_1: enfrentamiento["empates"],
-                            jugador_2: enfrentamiento["empates"]
-                        },
-                        {
-                            "Métrica": "Win Rate directo",
-                            jugador_1: f"{enfrentamiento['winrate_jugador_1']:.1f}%",
-                            jugador_2: f"{enfrentamiento['winrate_jugador_2']:.1f}%"
-                        }
-                    ]
+                st.plotly_chart(
+                    fig_enfrentamiento,
+                    use_container_width=True
                 )
 
-                st.dataframe(
-                    tabla_enfrentamiento,
-                    use_container_width=True,
-                    hide_index=True,
-                    height=180
-                )
+                if enfrentamiento["victorias_jugador_1"] > enfrentamiento["victorias_jugador_2"]:
+                    diferencia = (
+                        enfrentamiento["victorias_jugador_1"]
+                        - enfrentamiento["victorias_jugador_2"]
+                    )
+                    st.success(
+                        f"{jugador_1} lidera el mano a mano por {diferencia} victoria(s)."
+                    )
+                elif enfrentamiento["victorias_jugador_2"] > enfrentamiento["victorias_jugador_1"]:
+                    diferencia = (
+                        enfrentamiento["victorias_jugador_2"]
+                        - enfrentamiento["victorias_jugador_1"]
+                    )
+                    st.success(
+                        f"{jugador_2} lidera el mano a mano por {diferencia} victoria(s)."
+                    )
+                else:
+                    st.info("El mano a mano está empatado en victorias.")
