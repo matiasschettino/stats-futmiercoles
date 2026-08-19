@@ -62,13 +62,167 @@ def formatear_fechas(dataframe, columnas):
     for columna in columnas:
         if columna in dataframe.columns:
             dataframe[columna] = (
-                pd.to_datetime(
-                    dataframe[columna],
-                    errors="coerce"
-                )
+                pd.to_datetime(dataframe[columna], errors="coerce")
                 .dt.strftime("%d/%m/%Y")
             )
 
+    return dataframe
+
+
+def numero_entero(valor):
+    if valor is None or pd.isna(valor):
+        return 0
+
+    return int(valor)
+
+
+def numero_decimal(valor):
+    if valor is None or pd.isna(valor):
+        return 0.0
+
+    return float(valor)
+
+
+def texto_seguro(valor, reemplazo="Sin datos"):
+    if valor is None or pd.isna(valor) or str(valor).strip() == "":
+        return reemplazo
+
+    return str(valor)
+
+
+def mostrar_podio(dataframe, columna_nombre, columna_valor, sufijo="", cantidad=3):
+    if dataframe.empty:
+        return
+
+    podio = dataframe.head(cantidad).copy()
+    medallas = ["🥇", "🥈", "🥉"]
+    columnas = st.columns(cantidad)
+
+    for indice, (_, fila) in enumerate(podio.iterrows()):
+        valor = fila.get(columna_valor)
+
+        if isinstance(valor, float):
+            valor_texto = f"{valor:.1f}{sufijo}"
+        else:
+            valor_texto = f"{valor}{sufijo}"
+
+        with columnas[indice]:
+            st.info(
+                f"{medallas[indice]} {texto_seguro(fila.get(columna_nombre))}\n\n"
+                f"**{valor_texto}**"
+            )
+
+
+def agregar_posicion(dataframe):
+    dataframe = dataframe.copy()
+
+    if not dataframe.empty:
+        dataframe.insert(0, "#", range(1, len(dataframe) + 1))
+
+    return dataframe
+
+
+def preparar_mayores_paternidades(rivales_df, minimo_enfrentamientos):
+    if rivales_df.empty:
+        return pd.DataFrame()
+
+    base = rivales_df[
+        rivales_df["pj"] >= minimo_enfrentamientos
+    ].copy()
+
+    if base.empty:
+        return pd.DataFrame()
+
+    registros = []
+
+    for _, fila in base.iterrows():
+        jugador_1 = fila["jugador_1"]
+        jugador_2 = fila["jugador_2"]
+        g_jugador_1 = numero_entero(fila["g_jugador_1"])
+        g_jugador_2 = numero_entero(fila["g_jugador_2"])
+        pj = numero_entero(fila["pj"])
+
+        if g_jugador_1 >= g_jugador_2:
+            dominador = jugador_1
+            rival = jugador_2
+            victorias_dominador = g_jugador_1
+            victorias_rival = g_jugador_2
+            wr_dominador = numero_decimal(fila["winrate_jugador_1"])
+        else:
+            dominador = jugador_2
+            rival = jugador_1
+            victorias_dominador = g_jugador_2
+            victorias_rival = g_jugador_1
+            wr_dominador = numero_decimal(fila["winrate_jugador_2"])
+
+        registros.append(
+            {
+                "Dominador": dominador,
+                "Rival": rival,
+                "PJ": pj,
+                "Victorias dominador": victorias_dominador,
+                "Victorias rival": victorias_rival,
+                "Diferencia": abs(victorias_dominador - victorias_rival),
+                "WR dominador %": wr_dominador,
+                "Empates": numero_entero(fila["E"])
+            }
+        )
+
+    return (
+        pd.DataFrame(registros)
+        .sort_values(
+            ["Diferencia", "PJ", "WR dominador %", "Dominador", "Rival"],
+            ascending=[False, False, False, True, True]
+        )
+    )
+
+
+def preparar_mano_a_mano_parejo(rivales_df, minimo_enfrentamientos):
+    if rivales_df.empty:
+        return pd.DataFrame()
+
+    base = rivales_df[
+        rivales_df["pj"] >= minimo_enfrentamientos
+    ].copy()
+
+    if base.empty:
+        return pd.DataFrame()
+
+    base["Diferencia"] = (
+        base["g_jugador_1"] - base["g_jugador_2"]
+    ).abs()
+
+    return (
+        base
+        .sort_values(
+            ["Diferencia", "pj", "jugador_1", "jugador_2"],
+            ascending=[True, False, True, True]
+        )
+        [[
+            "jugador_1",
+            "jugador_2",
+            "pj",
+            "g_jugador_1",
+            "g_jugador_2",
+            "E",
+            "Diferencia"
+        ]]
+        .rename(
+            columns={
+                "jugador_1": "Jugador 1",
+                "jugador_2": "Jugador 2",
+                "pj": "PJ enfrentados",
+                "g_jugador_1": "Victorias J1",
+                "g_jugador_2": "Victorias J2",
+                "E": "Empates"
+            }
+        )
+    )
+
+
+def preparar_dupla_nombre(dataframe):
+    dataframe = dataframe.copy()
+    dataframe["Dupla"] = dataframe["jugador_1"] + " + " + dataframe["jugador_2"]
     return dataframe
 
 
@@ -80,6 +234,7 @@ try:
     jugadores = leer_tabla_completa("jugadores_master")
     equipos = leer_tabla_completa("equipos_master")
     parejas = leer_tabla_completa("estadisticas_parejas")
+    rivales = leer_tabla_completa("estadisticas_rivales")
 
 except Exception as error:
     st.error("No se pudieron leer los rankings desde Supabase.")
@@ -140,11 +295,27 @@ columnas_parejas = [
     "WinRate"
 ]
 
-for nombre_tabla, dataframe, columnas_requeridas in [
+columnas_rivales = [
+    "jugador_1",
+    "jugador_2",
+    "pj",
+    "g_jugador_1",
+    "g_jugador_2",
+    "E",
+    "winrate_jugador_1",
+    "winrate_jugador_2"
+]
+
+validaciones = [
     ("jugadores_master", jugadores, columnas_jugadores),
     ("equipos_master", equipos, columnas_equipos),
     ("estadisticas_parejas", parejas, columnas_parejas)
-]:
+]
+
+if not rivales.empty:
+    validaciones.append(("estadisticas_rivales", rivales, columnas_rivales))
+
+for nombre_tabla, dataframe, columnas_requeridas in validaciones:
     columnas_faltantes = [
         columna
         for columna in columnas_requeridas
@@ -172,15 +343,9 @@ for columna in [
     "mejor_racha_ganadora",
     "peor_racha_perdedora"
 ]:
-    jugadores[columna] = pd.to_numeric(
-        jugadores[columna],
-        errors="coerce"
-    )
+    jugadores[columna] = pd.to_numeric(jugadores[columna], errors="coerce")
 
-jugadores["WinRate"] = pd.to_numeric(
-    jugadores["WinRate"],
-    errors="coerce"
-)
+jugadores["WinRate"] = pd.to_numeric(jugadores["WinRate"], errors="coerce")
 
 for columna in [
     "racha_desde",
@@ -188,129 +353,269 @@ for columna in [
     "peor_racha_desde",
     "peor_racha_hasta"
 ]:
-    jugadores[columna] = pd.to_datetime(
-        jugadores[columna],
-        errors="coerce"
-    )
+    jugadores[columna] = pd.to_datetime(jugadores[columna], errors="coerce")
 
 for columna in ["PJ", "G", "E", "P", "WinRate"]:
-    equipos[columna] = pd.to_numeric(
-        equipos[columna],
-        errors="coerce"
-    )
+    equipos[columna] = pd.to_numeric(equipos[columna], errors="coerce")
 
-    parejas[columna] = pd.to_numeric(
-        parejas[columna],
-        errors="coerce"
-    )
+for columna in ["PJ", "G", "E", "P", "WinRate"]:
+    parejas[columna] = pd.to_numeric(parejas[columna], errors="coerce")
+
+for columna in [
+    "pj",
+    "g_jugador_1",
+    "g_jugador_2",
+    "E",
+    "winrate_jugador_1",
+    "winrate_jugador_2"
+]:
+    if columna in rivales.columns:
+        rivales[columna] = pd.to_numeric(rivales[columna], errors="coerce")
 
 jugadores = jugadores.dropna(subset=["jugador"]).copy()
 equipos = equipos.dropna(subset=["equipo"]).copy()
 parejas = parejas.dropna(subset=["jugador_1", "jugador_2"]).copy()
+rivales = rivales.dropna(subset=["jugador_1", "jugador_2"]).copy() if not rivales.empty else rivales
+
+
+# ==================================================
+# FILTROS GLOBALES
+# ==================================================
+
+st.caption(
+    "Los rankings históricos usan las tablas master recalculadas. "
+    "Los mínimos aplican a rankings de Win Rate, duplas y rivalidades."
+)
+
+col_min, col_cantidad = st.columns(2)
+
+with col_min:
+    minimo_partidos = st.slider(
+        "Mínimo de partidos / enfrentamientos",
+        min_value=0,
+        max_value=200,
+        value=50,
+        step=5
+    )
+
+with col_cantidad:
+    cantidad_ranking = st.selectbox(
+        "Cantidad a mostrar",
+        [10, 20, 30, 50],
+        index=1
+    )
 
 
 # ==================================================
 # PESTANAS
 # ==================================================
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+tab_jugadores, tab_equipos, tab_duplas, tab_rivalidades, tab_rachas = st.tabs(
     [
-        "🏃 Más partidos",
-        "🥇 Más victorias",
-        "📈 Mejor Win Rate",
-        "🔥 Rachas actuales",
-        "🏆 Rachas históricas",
+        "👤 Jugadores",
         "⚽ Equipos",
-        "🤝 Mejores duplas"
+        "🤝 Duplas",
+        "⚔️ Rivalidades",
+        "🔥 Rachas"
     ]
 )
 
 
 # ==================================================
-# MAS PARTIDOS
+# JUGADORES
 # ==================================================
 
-with tab1:
-    st.subheader("Top 20 jugadores con más partidos")
-
-    ranking = (
+with tab_jugadores:
+    st.subheader("🏃 Más partidos")
+    ranking_pj = (
         jugadores
-        .sort_values(
-            ["PJ", "G", "jugador"],
-            ascending=[False, False, True]
-        )
-        [["jugador", "PJ", "WinRate"]]
-        .head(20)
-        .rename(
-            columns={
-                "jugador": "Jugador",
-                "WinRate": "Win Rate %"
-            }
-        )
-    )
-
-    mostrar_ranking(ranking)
-
-
-# ==================================================
-# MAS VICTORIAS
-# ==================================================
-
-with tab2:
-    st.subheader("Top 20 jugadores con más victorias")
-
-    ranking = (
-        jugadores
-        .sort_values(
-            ["G", "PJ", "WinRate", "jugador"],
-            ascending=[False, False, False, True]
-        )
-        [["jugador", "G", "PJ", "WinRate"]]
-        .head(20)
-        .rename(
-            columns={
-                "jugador": "Jugador",
-                "WinRate": "Win Rate %"
-            }
-        )
-    )
-
-    mostrar_ranking(ranking)
-
-
-# ==================================================
-# MEJOR WIN RATE
-# ==================================================
-
-with tab3:
-    st.subheader("Top 20 Win Rate (mínimo 50 partidos)")
-
-    ranking = (
-        jugadores[
-            jugadores["PJ"] >= 50
-        ]
-        .sort_values(
-            ["WinRate", "PJ", "G", "jugador"],
-            ascending=[False, False, False, True]
-        )
+        .sort_values(["PJ", "G", "WinRate", "jugador"], ascending=[False, False, False, True])
         [["jugador", "PJ", "G", "E", "P", "WinRate"]]
-        .head(20)
-        .rename(
-            columns={
-                "jugador": "Jugador",
-                "WinRate": "Win Rate %"
-            }
-        )
+        .head(cantidad_ranking)
+        .rename(columns={"jugador": "Jugador", "WinRate": "Win Rate %"})
     )
+    mostrar_podio(ranking_pj, "Jugador", "PJ", " PJ")
+    mostrar_ranking(agregar_posicion(ranking_pj))
 
-    mostrar_ranking(ranking)
+    st.divider()
+    st.subheader("🥇 Más victorias")
+    ranking_victorias = (
+        jugadores
+        .sort_values(["G", "PJ", "WinRate", "jugador"], ascending=[False, False, False, True])
+        [["jugador", "G", "PJ", "WinRate", "E", "P"]]
+        .head(cantidad_ranking)
+        .rename(columns={"jugador": "Jugador", "WinRate": "Win Rate %", "G": "Victorias"})
+    )
+    mostrar_podio(ranking_victorias, "Jugador", "Victorias", " victorias")
+    mostrar_ranking(agregar_posicion(ranking_victorias))
+
+    st.divider()
+    st.subheader(f"📈 Mejor Win Rate, mínimo {minimo_partidos} PJ")
+    ranking_wr = (
+        jugadores[jugadores["PJ"] >= minimo_partidos]
+        .sort_values(["WinRate", "PJ", "G", "jugador"], ascending=[False, False, False, True])
+        [["jugador", "PJ", "G", "E", "P", "WinRate"]]
+        .head(cantidad_ranking)
+        .rename(columns={"jugador": "Jugador", "WinRate": "Win Rate %"})
+    )
+    mostrar_podio(ranking_wr, "Jugador", "Win Rate %", "%")
+    mostrar_ranking(agregar_posicion(ranking_wr))
+
+    st.divider()
+    st.subheader(f"📉 Menor Win Rate, mínimo {minimo_partidos} PJ")
+    ranking_wr_bajo = (
+        jugadores[jugadores["PJ"] >= minimo_partidos]
+        .sort_values(["WinRate", "PJ", "P", "jugador"], ascending=[True, False, False, True])
+        [["jugador", "PJ", "G", "E", "P", "WinRate"]]
+        .head(cantidad_ranking)
+        .rename(columns={"jugador": "Jugador", "WinRate": "Win Rate %"})
+    )
+    mostrar_podio(ranking_wr_bajo, "Jugador", "Win Rate %", "%")
+    mostrar_ranking(agregar_posicion(ranking_wr_bajo))
 
 
 # ==================================================
-# RACHAS ACTUALES
+# EQUIPOS
 # ==================================================
 
-with tab4:
+with tab_equipos:
+    st.subheader("⚽ Equipos con más partidos")
+    ranking_equipos_pj = (
+        equipos
+        .sort_values(["PJ", "G", "WinRate", "equipo"], ascending=[False, False, False, True])
+        [["equipo", "PJ", "G", "E", "P", "WinRate"]]
+        .rename(columns={"equipo": "Equipo", "WinRate": "Win Rate %"})
+    )
+    mostrar_podio(ranking_equipos_pj, "Equipo", "PJ", " PJ")
+    mostrar_ranking(agregar_posicion(ranking_equipos_pj))
+
+    st.divider()
+    st.subheader("🥇 Equipos con más victorias")
+    ranking_equipos_g = (
+        equipos
+        .sort_values(["G", "PJ", "WinRate", "equipo"], ascending=[False, False, False, True])
+        [["equipo", "G", "PJ", "E", "P", "WinRate"]]
+        .rename(columns={"equipo": "Equipo", "G": "Victorias", "WinRate": "Win Rate %"})
+    )
+    mostrar_podio(ranking_equipos_g, "Equipo", "Victorias", " victorias")
+    mostrar_ranking(agregar_posicion(ranking_equipos_g))
+
+    st.divider()
+    st.subheader(f"📈 Mejor Win Rate, mínimo {minimo_partidos} PJ")
+    ranking_equipos_wr = (
+        equipos[equipos["PJ"] >= minimo_partidos]
+        .sort_values(["WinRate", "PJ", "G", "equipo"], ascending=[False, False, False, True])
+        [["equipo", "PJ", "G", "E", "P", "WinRate"]]
+        .rename(columns={"equipo": "Equipo", "WinRate": "Win Rate %"})
+    )
+    mostrar_podio(ranking_equipos_wr, "Equipo", "Win Rate %", "%")
+    mostrar_ranking(agregar_posicion(ranking_equipos_wr))
+
+
+# ==================================================
+# DUPLAS
+# ==================================================
+
+with tab_duplas:
+    parejas_nombre = preparar_dupla_nombre(parejas)
+
+    st.subheader("👥 Duplas con más partidos juntos")
+    ranking_duplas_pj = (
+        parejas_nombre
+        .sort_values(["PJ", "G", "WinRate", "jugador_1", "jugador_2"], ascending=[False, False, False, True, True])
+        [["Dupla", "jugador_1", "jugador_2", "PJ", "G", "E", "P", "WinRate"]]
+        .head(cantidad_ranking)
+        .rename(columns={"jugador_1": "Jugador 1", "jugador_2": "Jugador 2", "WinRate": "Win Rate %"})
+    )
+    mostrar_podio(ranking_duplas_pj, "Dupla", "PJ", " PJ")
+    mostrar_ranking(agregar_posicion(ranking_duplas_pj))
+
+    st.divider()
+    st.subheader(f"🏆 Mejores duplas, mínimo {minimo_partidos} PJ")
+    ranking_duplas_wr = (
+        parejas_nombre[parejas_nombre["PJ"] >= minimo_partidos]
+        .sort_values(["WinRate", "PJ", "G", "jugador_1", "jugador_2"], ascending=[False, False, False, True, True])
+        [["Dupla", "jugador_1", "jugador_2", "PJ", "G", "E", "P", "WinRate"]]
+        .head(cantidad_ranking)
+        .rename(columns={"jugador_1": "Jugador 1", "jugador_2": "Jugador 2", "WinRate": "Win Rate %"})
+    )
+    mostrar_podio(ranking_duplas_wr, "Dupla", "Win Rate %", "%")
+    mostrar_ranking(agregar_posicion(ranking_duplas_wr))
+
+    st.divider()
+    st.subheader("🔥 Duplas más ganadoras")
+    ranking_duplas_g = (
+        parejas_nombre
+        .sort_values(["G", "PJ", "WinRate", "jugador_1", "jugador_2"], ascending=[False, False, False, True, True])
+        [["Dupla", "jugador_1", "jugador_2", "G", "PJ", "E", "P", "WinRate"]]
+        .head(cantidad_ranking)
+        .rename(columns={"jugador_1": "Jugador 1", "jugador_2": "Jugador 2", "G": "Victorias", "WinRate": "Win Rate %"})
+    )
+    mostrar_podio(ranking_duplas_g, "Dupla", "Victorias", " victorias")
+    mostrar_ranking(agregar_posicion(ranking_duplas_g))
+
+    st.divider()
+    st.subheader(f"📉 Duplas con menor Win Rate, mínimo {minimo_partidos} PJ")
+    ranking_duplas_bajo = (
+        parejas_nombre[parejas_nombre["PJ"] >= minimo_partidos]
+        .sort_values(["WinRate", "PJ", "P", "jugador_1", "jugador_2"], ascending=[True, False, False, True, True])
+        [["Dupla", "jugador_1", "jugador_2", "PJ", "G", "E", "P", "WinRate"]]
+        .head(cantidad_ranking)
+        .rename(columns={"jugador_1": "Jugador 1", "jugador_2": "Jugador 2", "WinRate": "Win Rate %"})
+    )
+    mostrar_podio(ranking_duplas_bajo, "Dupla", "Win Rate %", "%")
+    mostrar_ranking(agregar_posicion(ranking_duplas_bajo))
+
+
+# ==================================================
+# RIVALIDADES
+# ==================================================
+
+with tab_rivalidades:
+    if rivales.empty:
+        st.info("No hay datos de estadisticas_rivales para mostrar.")
+    else:
+        st.subheader("⚔️ Rivalidades más repetidas")
+        ranking_rivalidades_pj = (
+            rivales
+            .sort_values(["pj", "g_jugador_1", "g_jugador_2", "jugador_1", "jugador_2"], ascending=[False, False, False, True, True])
+            [["jugador_1", "jugador_2", "pj", "g_jugador_1", "g_jugador_2", "E"]]
+            .head(cantidad_ranking)
+            .rename(
+                columns={
+                    "jugador_1": "Jugador 1",
+                    "jugador_2": "Jugador 2",
+                    "pj": "PJ enfrentados",
+                    "g_jugador_1": "Victorias J1",
+                    "g_jugador_2": "Victorias J2",
+                    "E": "Empates"
+                }
+            )
+        )
+        ranking_rivalidades_pj["Rivalidad"] = ranking_rivalidades_pj["Jugador 1"] + " vs " + ranking_rivalidades_pj["Jugador 2"]
+        mostrar_podio(ranking_rivalidades_pj, "Rivalidad", "PJ enfrentados", " PJ")
+        mostrar_ranking(agregar_posicion(ranking_rivalidades_pj))
+
+        st.divider()
+        st.subheader(f"⚖️ Mano a mano más parejos, mínimo {minimo_partidos} enfrentamientos")
+        ranking_parejos = preparar_mano_a_mano_parejo(rivales, minimo_partidos).head(cantidad_ranking)
+        if not ranking_parejos.empty:
+            ranking_parejos["Rivalidad"] = ranking_parejos["Jugador 1"] + " vs " + ranking_parejos["Jugador 2"]
+        mostrar_podio(ranking_parejos, "Rivalidad", "Diferencia", " diferencia")
+        mostrar_ranking(agregar_posicion(ranking_parejos))
+
+        st.divider()
+        st.subheader(f"👑 Mayores paternidades, mínimo {minimo_partidos} enfrentamientos")
+        ranking_paternidades = preparar_mayores_paternidades(rivales, minimo_partidos).head(cantidad_ranking)
+        mostrar_podio(ranking_paternidades, "Dominador", "Diferencia", " diferencia")
+        mostrar_ranking(agregar_posicion(ranking_paternidades))
+
+
+# ==================================================
+# RACHAS
+# ==================================================
+
+with tab_rachas:
     st.subheader("🔥 Rachas actuales")
 
     rachas_validas = jugadores[
@@ -319,182 +624,50 @@ with tab4:
         & (jugadores["tipo_racha_activa"] != "Inactivo")
     ].copy()
 
-    rachas_positivas = rachas_validas[
-        rachas_validas["tipo_racha_activa"] == "G"
-    ].copy()
+    rachas_positivas = rachas_validas[rachas_validas["tipo_racha_activa"] == "G"].copy()
+    rachas_negativas = rachas_validas[rachas_validas["tipo_racha_activa"] == "P"].copy()
+    rachas_empates = rachas_validas[rachas_validas["tipo_racha_activa"] == "E"].copy()
 
-    rachas_negativas = rachas_validas[
-        rachas_validas["tipo_racha_activa"] == "P"
-    ].copy()
-
-    rachas_empates = rachas_validas[
-        rachas_validas["tipo_racha_activa"] == "E"
-    ].copy()
-
-    lider_positivo = (
-        rachas_positivas
-        .sort_values(
-            ["racha_activa", "WinRate", "PJ", "jugador"],
-            ascending=[False, False, False, True]
-        )
-        .head(1)
-    )
-
-    lider_negativo = (
-        rachas_negativas
-        .sort_values(
-            ["racha_activa", "WinRate", "PJ", "jugador"],
-            ascending=[False, True, False, True]
-        )
-        .head(1)
-    )
-
-    k1, k2, k3, k4 = st.columns(4)
-
-    k1.metric(
-        "Jugadores en racha positiva",
-        len(rachas_positivas)
-    )
-
-    k2.metric(
-        "Jugadores en racha negativa",
-        len(rachas_negativas)
-    )
-
-    k3.metric(
-        "Mayor racha positiva actual",
-        (
-            int(lider_positivo.iloc[0]["racha_activa"])
-            if not lider_positivo.empty
-            else 0
-        ),
-        help=(
-            f"Jugador: {lider_positivo.iloc[0]['jugador']}"
-            if not lider_positivo.empty
-            else "No hay rachas positivas activas"
-        )
-    )
-
-    k4.metric(
-        "Mayor racha negativa actual",
-        (
-            int(lider_negativo.iloc[0]["racha_activa"])
-            if not lider_negativo.empty
-            else 0
-        ),
-        help=(
-            f"Jugador: {lider_negativo.iloc[0]['jugador']}"
-            if not lider_negativo.empty
-            else "No hay rachas negativas activas"
-        )
-    )
-
-    if not rachas_empates.empty:
-        st.caption(
-            f"Además, hay {len(rachas_empates)} jugador(es) "
-            "con una racha activa de empates."
-        )
+    k1, k2, k3 = st.columns(3)
+    k1.metric("En racha positiva", len(rachas_positivas))
+    k2.metric("En racha negativa", len(rachas_negativas))
+    k3.metric("En racha de empates", len(rachas_empates))
 
     st.divider()
-
     st.subheader("🔥 Rachas positivas actuales")
-
     ranking_positivo = (
         rachas_positivas
-        .sort_values(
-            ["racha_activa", "WinRate", "PJ", "jugador"],
-            ascending=[False, False, False, True]
-        )
-        [
-            [
-                "jugador",
-                "racha_activa",
-                "PJ",
-                "G",
-                "WinRate"
-            ]
-        ]
-        .rename(
-            columns={
-                "jugador": "Jugador",
-                "racha_activa": "Victorias consecutivas actuales",
-                "WinRate": "Win Rate %"
-            }
-        )
-        .head(20)
+        .sort_values(["racha_activa", "WinRate", "PJ", "jugador"], ascending=[False, False, False, True])
+        [["jugador", "racha_activa", "PJ", "G", "WinRate"]]
+        .head(cantidad_ranking)
+        .rename(columns={"jugador": "Jugador", "racha_activa": "Victorias consecutivas actuales", "WinRate": "Win Rate %"})
     )
+    mostrar_podio(ranking_positivo, "Jugador", "Victorias consecutivas actuales", " victorias")
+    mostrar_ranking(agregar_posicion(ranking_positivo), alto=360)
 
-    mostrar_ranking(ranking_positivo, alto=360)
-
+    st.divider()
     st.subheader("📉 Rachas negativas actuales")
-
     ranking_negativo = (
         rachas_negativas
-        .sort_values(
-            ["racha_activa", "WinRate", "PJ", "jugador"],
-            ascending=[False, True, False, True]
-        )
-        [
-            [
-                "jugador",
-                "racha_activa",
-                "PJ",
-                "P",
-                "WinRate"
-            ]
-        ]
-        .rename(
-            columns={
-                "jugador": "Jugador",
-                "racha_activa": "Derrotas consecutivas actuales",
-                "WinRate": "Win Rate %"
-            }
-        )
-        .head(20)
+        .sort_values(["racha_activa", "WinRate", "PJ", "jugador"], ascending=[False, True, False, True])
+        [["jugador", "racha_activa", "PJ", "P", "WinRate"]]
+        .head(cantidad_ranking)
+        .rename(columns={"jugador": "Jugador", "racha_activa": "Derrotas consecutivas actuales", "WinRate": "Win Rate %"})
     )
+    mostrar_podio(ranking_negativo, "Jugador", "Derrotas consecutivas actuales", " derrotas")
+    mostrar_ranking(agregar_posicion(ranking_negativo), alto=360)
 
-    mostrar_ranking(ranking_negativo, alto=360)
-
-
-# ==================================================
-# RACHAS HISTORICAS
-# ==================================================
-
-with tab5:
-    st.subheader("🏆 Rachas históricas")
-    st.caption(
-        "Ranking histórico de las mejores series positivas y negativas, "
-        "incluyendo el período exacto en el que ocurrieron."
-    )
-
+    st.divider()
+    st.subheader("🏆 Mejores rachas históricas positivas")
     mejores_rachas_historicas = jugadores[
         jugadores["mejor_racha_ganadora"].notna()
         & (jugadores["mejor_racha_ganadora"] > 0)
     ].copy()
-
     ranking_mejores_rachas = (
         mejores_rachas_historicas
-        .sort_values(
-            [
-                "mejor_racha_ganadora",
-                "WinRate",
-                "PJ",
-                "jugador"
-            ],
-            ascending=[False, False, False, True]
-        )
-        [
-            [
-                "jugador",
-                "mejor_racha_ganadora",
-                "racha_desde",
-                "racha_hasta",
-                "PJ",
-                "G",
-                "WinRate"
-            ]
-        ]
-        .head(10)
+        .sort_values(["mejor_racha_ganadora", "WinRate", "PJ", "jugador"], ascending=[False, False, False, True])
+        [["jugador", "mejor_racha_ganadora", "racha_desde", "racha_hasta", "PJ", "G", "WinRate"]]
+        .head(cantidad_ranking)
         .rename(
             columns={
                 "jugador": "Jugador",
@@ -507,52 +680,21 @@ with tab5:
             }
         )
     )
-
-    ranking_mejores_rachas = formatear_fechas(
-        ranking_mejores_rachas,
-        ["Desde", "Hasta"]
-    )
-
-    if not ranking_mejores_rachas.empty:
-        ranking_mejores_rachas.insert(
-            0,
-            "#",
-            range(1, len(ranking_mejores_rachas) + 1)
-        )
-
-    st.subheader("🏆 Top 10 mejores rachas históricas positivas")
-    mostrar_ranking(ranking_mejores_rachas, alto=420)
+    ranking_mejores_rachas = formatear_fechas(ranking_mejores_rachas, ["Desde", "Hasta"])
+    mostrar_podio(ranking_mejores_rachas, "Jugador", "Victorias consecutivas", " victorias")
+    mostrar_ranking(agregar_posicion(ranking_mejores_rachas), alto=420)
 
     st.divider()
-
+    st.subheader("📉 Peores rachas históricas negativas")
     peores_rachas_historicas = jugadores[
         jugadores["peor_racha_perdedora"].notna()
         & (jugadores["peor_racha_perdedora"] > 0)
     ].copy()
-
     ranking_peores_rachas = (
         peores_rachas_historicas
-        .sort_values(
-            [
-                "peor_racha_perdedora",
-                "WinRate",
-                "PJ",
-                "jugador"
-            ],
-            ascending=[False, True, False, True]
-        )
-        [
-            [
-                "jugador",
-                "peor_racha_perdedora",
-                "peor_racha_desde",
-                "peor_racha_hasta",
-                "PJ",
-                "P",
-                "WinRate"
-            ]
-        ]
-        .head(10)
+        .sort_values(["peor_racha_perdedora", "WinRate", "PJ", "jugador"], ascending=[False, True, False, True])
+        [["jugador", "peor_racha_perdedora", "peor_racha_desde", "peor_racha_hasta", "PJ", "P", "WinRate"]]
+        .head(cantidad_ranking)
         .rename(
             columns={
                 "jugador": "Jugador",
@@ -565,90 +707,6 @@ with tab5:
             }
         )
     )
-
-    ranking_peores_rachas = formatear_fechas(
-        ranking_peores_rachas,
-        ["Desde", "Hasta"]
-    )
-
-    if not ranking_peores_rachas.empty:
-        ranking_peores_rachas.insert(
-            0,
-            "#",
-            range(1, len(ranking_peores_rachas) + 1)
-        )
-
-    st.subheader("📉 Top 10 mejores rachas históricas negativas")
-    mostrar_ranking(ranking_peores_rachas, alto=420)
-
-
-# ==================================================
-# EQUIPOS MAS GANADORES
-# ==================================================
-
-with tab6:
-    st.subheader("Equipos más ganadores")
-
-    ranking = (
-        equipos
-        .sort_values(
-            ["G", "PJ", "WinRate", "equipo"],
-            ascending=[False, False, False, True]
-        )
-        [["equipo", "G", "E", "P", "PJ", "WinRate"]]
-        .rename(
-            columns={
-                "equipo": "Equipo",
-                "WinRate": "Win Rate %"
-            }
-        )
-    )
-
-    mostrar_ranking(ranking)
-
-
-# ==================================================
-# MEJORES DUPLAS
-# ==================================================
-
-with tab7:
-    st.subheader(
-        "Mejores duplas históricas (mínimo 50 partidos juntos)"
-    )
-
-    ranking = (
-        parejas[
-            parejas["PJ"] >= 50
-        ]
-        .sort_values(
-            [
-                "WinRate",
-                "PJ",
-                "G",
-                "jugador_1",
-                "jugador_2"
-            ],
-            ascending=[False, False, False, True, True]
-        )
-        [
-            [
-                "jugador_1",
-                "jugador_2",
-                "PJ",
-                "G",
-                "E",
-                "P",
-                "WinRate"
-            ]
-        ]
-        .head(30)
-        .rename(
-            columns={
-                "jugador_1": "Jugador 1",
-                "jugador_2": "Jugador 2",
-                "WinRate": "Win Rate %"
-            }
-        )
-    )
-
-    mostrar_ranking(ranking)
+    ranking_peores_rachas = formatear_fechas(ranking_peores_rachas, ["Desde", "Hasta"])
+    mostrar_podio(ranking_peores_rachas, "Jugador", "Derrotas consecutivas", " derrotas")
+    mostrar_ranking(agregar_posicion(ranking_peores_rachas), alto=420)
