@@ -292,6 +292,166 @@ def obtener_timeline_enfrentamientos(participaciones_df, jugador_1, jugador_2):
     )
 
 
+def obtener_timeline_dupla(participaciones_df, jugador_1, jugador_2):
+    registros = []
+
+    participaciones_filtradas = participaciones_df[
+        participaciones_df["jugador"].isin([jugador_1, jugador_2])
+    ].copy()
+
+    for _, grupo in participaciones_filtradas.groupby("partido_id"):
+        jugadores_partido = set(grupo["jugador"].dropna().astype(str))
+
+        if not {jugador_1, jugador_2}.issubset(jugadores_partido):
+            continue
+
+        fila_1 = grupo[grupo["jugador"] == jugador_1].iloc[0]
+        fila_2 = grupo[grupo["jugador"] == jugador_2].iloc[0]
+
+        if fila_1["equipo"] != fila_2["equipo"]:
+            continue
+
+        fecha = fila_1["fecha"]
+
+        if pd.isna(fecha):
+            continue
+
+        resultado = fila_1["resultado_jugador"]
+
+        registros.append(
+            {
+                "Año": fecha.year,
+                "Victorias": 1 if resultado == "G" else 0,
+                "Empates": 1 if resultado == "E" else 0,
+                "Derrotas": 1 if resultado == "P" else 0,
+                "Total": 1
+            }
+        )
+
+    if not registros:
+        return pd.DataFrame()
+
+    return (
+        pd.DataFrame(registros)
+        .groupby("Año", as_index=False)
+        .sum()
+        .sort_values("Año")
+    )
+
+
+def construir_grafico_dupla_timeline(timeline_df):
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Bar(
+            x=timeline_df["Año"],
+            y=timeline_df["Victorias"],
+            name="Victorias",
+            marker_color="#22C55E",
+            hovertemplate=(
+                "<b>Victorias</b><br>"
+                "Año: %{x}<br>"
+                "Cantidad: %{y}"
+                "<extra></extra>"
+            )
+        )
+    )
+
+    fig.add_trace(
+        go.Bar(
+            x=timeline_df["Año"],
+            y=timeline_df["Empates"],
+            name="Empates",
+            marker_color="#FACC15",
+            hovertemplate=(
+                "<b>Empates</b><br>"
+                "Año: %{x}<br>"
+                "Cantidad: %{y}"
+                "<extra></extra>"
+            )
+        )
+    )
+
+    fig.add_trace(
+        go.Bar(
+            x=timeline_df["Año"],
+            y=timeline_df["Derrotas"],
+            name="Derrotas",
+            marker_color="#EF4444",
+            hovertemplate=(
+                "<b>Derrotas</b><br>"
+                "Año: %{x}<br>"
+                "Cantidad: %{y}"
+                "<extra></extra>"
+            )
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=timeline_df["Año"],
+            y=timeline_df["Total"],
+            name="Total juntos",
+            mode="lines+markers",
+            line={
+                "color": "white",
+                "width": 3
+            },
+            marker={
+                "size": 8,
+                "color": "white"
+            },
+            hovertemplate=(
+                "<b>Total juntos</b><br>"
+                "Año: %{x}<br>"
+                "Total: %{y}"
+                "<extra></extra>"
+            )
+        )
+    )
+
+    fig.update_layout(
+        height=420,
+        barmode="stack",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={
+            "color": "white",
+            "size": 13
+        },
+        xaxis={
+            "title": "Año",
+            "tickmode": "linear",
+            "gridcolor": "rgba(255,255,255,0.12)"
+        },
+        yaxis={
+            "title": "Partidos juntos",
+            "gridcolor": "rgba(255,255,255,0.12)"
+        },
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "center",
+            "x": 0.5
+        },
+        hoverlabel={
+            "bgcolor": "#111827",
+            "font_size": 13,
+            "font_color": "white",
+            "bordercolor": "rgba(255,255,255,0.35)"
+        },
+        margin={
+            "l": 50,
+            "r": 30,
+            "t": 80,
+            "b": 50
+        }
+    )
+
+    return fig
+
+
 def construir_comparacion(info_1, info_2, jugador_1, jugador_2):
     datos = [
         {
@@ -1043,28 +1203,40 @@ with tab_perfil:
                     .iloc[0]
                 )
 
-                r1, r2, r3, r4 = st.columns(4)
+                fila_1_col_1, fila_1_col_2 = st.columns(2)
+                fila_2_col_1, fila_2_col_2 = st.columns(2)
 
-                r1.metric(
-                    "Más victorias contra",
-                    texto_seguro(rival_mas_vencido["rival"]),
-                    f"{numero_entero_seguro(rival_mas_vencido['victorias_jugador'])} victorias"
-                )
-                r2.metric(
-                    "Más derrotas contra",
-                    texto_seguro(rival_que_mas_le_gano["rival"]),
-                    f"{numero_entero_seguro(rival_que_mas_le_gano['victorias_rival'])} derrotas"
-                )
-                r3.metric(
-                    "Mejor WR vs rival",
-                    texto_seguro(mejor_porcentaje["rival"]),
-                    f"{numero_decimal_seguro(mejor_porcentaje['winrate']):.1f}%"
-                )
-                r4.metric(
-                    "Peor WR vs rival",
-                    texto_seguro(peor_porcentaje["rival"]),
-                    f"{numero_decimal_seguro(peor_porcentaje['winrate']):.1f}%"
-                )
+                with fila_1_col_1:
+                    st.info(
+                        "✅ Más victorias contra\n\n"
+                        f"**{texto_seguro(rival_mas_vencido['rival'])}**\n\n"
+                        f"{numero_entero_seguro(rival_mas_vencido['victorias_jugador'])} victorias "
+                        f"en {numero_entero_seguro(rival_mas_vencido['pj'])} enfrentamientos"
+                    )
+
+                with fila_1_col_2:
+                    st.info(
+                        "📈 Mejor Win Rate vs rival\n\n"
+                        f"**{texto_seguro(mejor_porcentaje['rival'])}**\n\n"
+                        f"{numero_decimal_seguro(mejor_porcentaje['winrate']):.1f}% WR "
+                        f"en {numero_entero_seguro(mejor_porcentaje['pj'])} enfrentamientos"
+                    )
+
+                with fila_2_col_1:
+                    st.info(
+                        "⚠️ Más derrotas contra\n\n"
+                        f"**{texto_seguro(rival_que_mas_le_gano['rival'])}**\n\n"
+                        f"{numero_entero_seguro(rival_que_mas_le_gano['victorias_rival'])} derrotas "
+                        f"en {numero_entero_seguro(rival_que_mas_le_gano['pj'])} enfrentamientos"
+                    )
+
+                with fila_2_col_2:
+                    st.info(
+                        "📉 Peor Win Rate vs rival\n\n"
+                        f"**{texto_seguro(peor_porcentaje['rival'])}**\n\n"
+                        f"{numero_decimal_seguro(peor_porcentaje['winrate']):.1f}% WR "
+                        f"en {numero_entero_seguro(peor_porcentaje['pj'])} enfrentamientos"
+                    )
 
                 st.caption(
                     "Para mejor y peor Win Rate vs rival se usa mínimo de 5 enfrentamientos cuando hay datos suficientes."
@@ -1210,6 +1382,22 @@ with tab_perfil:
                         "Win Rate",
                         f"{numero_decimal_seguro(datos_dupla['WinRate']):.1f}%"
                     )
+
+                    timeline_dupla = obtener_timeline_dupla(
+                        participaciones_historial,
+                        jugador,
+                        companero
+                    )
+
+                    if not timeline_dupla.empty:
+                        st.subheader("📅 Partidos juntos por año")
+                        fig_dupla = construir_grafico_dupla_timeline(
+                            timeline_dupla
+                        )
+                        st.plotly_chart(
+                            fig_dupla,
+                            use_container_width=True
+                        )
                 else:
                     st.warning("No se encontraron partidos juntos.")
 
@@ -1321,24 +1509,30 @@ with tab_comparador:
                     f"{numero_entero_seguro(datos_dupla.get('P'))}"
                 )
 
-                d1, d2, d3 = st.columns(3)
+                d1, d2, d3, d4, d5 = st.columns(5)
 
                 d1.metric(
                     "PJ juntos",
                     pj_juntos
                 )
                 d2.metric(
-                    "Participación",
-                    f"{porcentaje_jugador_1:.1f}% / {porcentaje_jugador_2:.1f}%",
-                    help=(
-                        f"{porcentaje_jugador_1:.1f}% de los PJ de {jugador_1}. "
-                        f"{porcentaje_jugador_2:.1f}% de los PJ de {jugador_2}."
-                    )
+                    "% PJ jugador 1",
+                    f"{porcentaje_jugador_1:.1f}%",
+                    help=f"Porcentaje de partidos de {jugador_1} que jugó junto a {jugador_2}."
                 )
                 d3.metric(
-                    "Récord y WR",
-                    f"{record_dupla} | {numero_decimal_seguro(datos_dupla.get('WinRate')):.1f}%",
-                    help="Formato: victorias-empates-derrotas | Win Rate"
+                    "% PJ jugador 2",
+                    f"{porcentaje_jugador_2:.1f}%",
+                    help=f"Porcentaje de partidos de {jugador_2} que jugó junto a {jugador_1}."
+                )
+                d4.metric(
+                    "Récord juntos",
+                    record_dupla,
+                    help="Formato: victorias-empates-derrotas"
+                )
+                d5.metric(
+                    "WR dupla",
+                    f"{numero_decimal_seguro(datos_dupla.get('WinRate')):.1f}%"
                 )
 
             st.divider()
