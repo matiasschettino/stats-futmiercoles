@@ -194,9 +194,9 @@ COLUMNAS_ENTERAS_EQUIPOS = [
 ]
 
 COLUMNAS_ENTERAS_RIVALES = [
-    "PJ",
-    "G_jugador_1",
-    "G_jugador_2",
+    "pj",
+    "g_jugador_1",
+    "g_jugador_2",
     "E"
 ]
 
@@ -651,15 +651,15 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
                     ]
                 )
                 .agg(
-                    PJ=(
+                    pj=(
                         "resultado_jugador_1",
                         "size"
                     ),
-                    G_jugador_1=(
+                    g_jugador_1=(
                         "resultado_jugador_1",
                         lambda resultados: (resultados == "G").sum()
                     ),
-                    G_jugador_2=(
+                    g_jugador_2=(
                         "resultado_jugador_2",
                         lambda resultados: (resultados == "G").sum()
                     ),
@@ -671,15 +671,15 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
                 .reset_index()
             )
 
-            estadisticas_rivales["WinRate_jugador_1"] = (
-                estadisticas_rivales["G_jugador_1"]
-                / estadisticas_rivales["PJ"].replace(0, pd.NA)
+            estadisticas_rivales["winrate_jugador_1"] = (
+                estadisticas_rivales["g_jugador_1"]
+                / estadisticas_rivales["pj"].replace(0, pd.NA)
                 * 100
             ).round(2).fillna(0)
 
-            estadisticas_rivales["WinRate_jugador_2"] = (
-                estadisticas_rivales["G_jugador_2"]
-                / estadisticas_rivales["PJ"].replace(0, pd.NA)
+            estadisticas_rivales["winrate_jugador_2"] = (
+                estadisticas_rivales["g_jugador_2"]
+                / estadisticas_rivales["pj"].replace(0, pd.NA)
                 * 100
             ).round(2).fillna(0)
         else:
@@ -688,11 +688,11 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
                     "jugador_1",
                     "jugador_2",
                     "PJ",
-                    "G_jugador_1",
-                    "G_jugador_2",
+                    "g_jugador_1",
+                    "g_jugador_2",
                     "E",
-                    "WinRate_jugador_1",
-                    "WinRate_jugador_2"
+                    "winrate_jugador_1",
+                    "winrate_jugador_2"
                 ]
             )
 
@@ -1186,12 +1186,12 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         columnas_rivales = [
             "jugador_1",
             "jugador_2",
-            "PJ",
-            "G_jugador_1",
-            "G_jugador_2",
+            "pj",
+            "g_jugador_1",
+            "g_jugador_2",
             "E",
-            "WinRate_jugador_1",
-            "WinRate_jugador_2"
+            "winrate_jugador_1",
+            "winrate_jugador_2"
         ]
 
         estadisticas_rivales_nuevo = estadisticas_rivales[
@@ -1204,7 +1204,7 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
                 errors="coerce"
             ).astype("Int64")
 
-        for columna in ["WinRate_jugador_1", "WinRate_jugador_2"]:
+        for columna in ["winrate_jugador_1", "winrate_jugador_2"]:
             estadisticas_rivales_nuevo[columna] = pd.to_numeric(
                 estadisticas_rivales_nuevo[columna],
                 errors="coerce"
@@ -1442,7 +1442,7 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         st.subheader("👀 Vista previa jugadores")
         st.dataframe(
             jugadores_master_nuevo
-            .sort_values("PJ", ascending=False)
+            .sort_values("pj", ascending=False)
             .head(30),
             use_container_width=True,
             hide_index=True
@@ -1451,7 +1451,7 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         st.subheader("🛡️ Vista previa equipos_master")
         st.dataframe(
             equipos_master_nuevo
-            .sort_values("PJ", ascending=False)
+            .sort_values("pj", ascending=False)
             .head(30),
             use_container_width=True,
             hide_index=True
@@ -1460,7 +1460,7 @@ if st.button("🔄 Ejecutar Chequeo", key="btn_ejecutar_chequeo"):
         st.subheader("⚔️ Vista previa estadisticas_rivales")
         st.dataframe(
             estadisticas_rivales_nuevo
-            .sort_values("PJ", ascending=False)
+            .sort_values("pj", ascending=False)
             .head(30),
             use_container_width=True,
             hide_index=True
@@ -2101,17 +2101,17 @@ if st.session_state.get("chequeo_realizado", False):
                         )
 
                 if not rivales_verificacion.empty:
-                    for columna in ["PJ", "G_jugador_1", "G_jugador_2", "E"]:
+                    for columna in ["pj", "g_jugador_1", "g_jugador_2", "E"]:
                         rivales_verificacion[columna] = pd.to_numeric(
                             rivales_verificacion[columna],
                             errors="coerce"
                         )
 
                     rivales_invalidos = rivales_verificacion[
-                        rivales_verificacion["PJ"]
+                        rivales_verificacion["pj"]
                         != (
-                            rivales_verificacion["G_jugador_1"]
-                            + rivales_verificacion["G_jugador_2"]
+                            rivales_verificacion["g_jugador_1"]
+                            + rivales_verificacion["g_jugador_2"]
                             + rivales_verificacion["E"]
                         )
                     ]
