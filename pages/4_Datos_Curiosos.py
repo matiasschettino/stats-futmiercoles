@@ -14,6 +14,43 @@ st.markdown("Récords e hitos históricos de FutMiércoles.")
 
 supabase = get_supabase()
 
+st.markdown(
+    """
+    <style>
+    .curiosity-card {
+        background-color: #14304a;
+        border-radius: 10px;
+        padding: 22px 18px;
+        min-height: 200px;
+        height: 200px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        color: #2D9CFF;
+        box-sizing: border-box;
+    }
+    .curiosity-card-title {
+        font-size: 18px;
+        line-height: 1.35;
+        font-weight: 600;
+        margin-bottom: 12px;
+    }
+    .curiosity-card-main {
+        font-size: 18px;
+        line-height: 1.35;
+        font-weight: 700;
+        margin-bottom: 12px;
+    }
+    .curiosity-card-detail {
+        font-size: 18px;
+        line-height: 1.35;
+        font-weight: 600;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 
 # ==================================================
 # FUNCIONES
@@ -92,6 +129,19 @@ def mostrar_record(titulo, fila, detalle):
         f"{titulo}\n\n"
         f"**{partido_texto(fila)}**\n\n"
         f"📅 {fecha_formato(fila.get('fecha'))} · {detalle}"
+    )
+
+
+def mostrar_tarjeta_igual(titulo, principal, detalle):
+    st.markdown(
+        f"""
+        <div class="curiosity-card">
+            <div class="curiosity-card-title">{titulo}</div>
+            <div class="curiosity-card-main">{principal}</div>
+            <div class="curiosity-card-detail">{detalle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
 
@@ -537,23 +587,27 @@ mes_mayor_promedio = resumen_meses.sort_values(["Promedio_goles", "Partidos"], a
 mes_menor_promedio = resumen_meses.sort_values(["Promedio_goles", "Partidos"], ascending=[True, False]).iloc[0]
 
 m1, m2, m3, m4 = st.columns(4)
-m1.info(
-    "📅 Mes con más partidos\n\n"
-    f"**Mes {entero_seguro(mes_mas_partidos['Mes'])}**\n\n"
-    f"{entero_seguro(mes_mas_partidos['Partidos'])} partidos"
-)
-m2.info(
-    "🧊 Mes con menos partidos\n\n"
-    f"**Mes {entero_seguro(mes_menos_partidos['Mes'])}**\n\n"
-    f"{entero_seguro(mes_menos_partidos['Partidos'])} partidos"
-)
-m3.info(
-    "🔥 Mejor promedio de goles\n\n"
-    f"**Mes {entero_seguro(mes_mayor_promedio['Mes'])}**\n\n"
-    f"{decimal_seguro(mes_mayor_promedio['Promedio_goles']):.2f} goles/partido"
-)
-m4.info(
-    "🧤 Menor promedio de goles\n\n"
-    f"**Mes {entero_seguro(mes_menor_promedio['Mes'])}**\n\n"
-    f"{decimal_seguro(mes_menor_promedio['Promedio_goles']):.2f} goles/partido"
-)
+with m1:
+    mostrar_tarjeta_igual(
+        "📅 Mes con más partidos",
+        f"Mes {entero_seguro(mes_mas_partidos['Mes'])}",
+        f"{entero_seguro(mes_mas_partidos['Partidos'])} partidos"
+    )
+with m2:
+    mostrar_tarjeta_igual(
+        "🧊 Mes con menos partidos",
+        f"Mes {entero_seguro(mes_menos_partidos['Mes'])}",
+        f"{entero_seguro(mes_menos_partidos['Partidos'])} partidos"
+    )
+with m3:
+    mostrar_tarjeta_igual(
+        "🔥 Mejor promedio de goles",
+        f"Mes {entero_seguro(mes_mayor_promedio['Mes'])}",
+        f"{decimal_seguro(mes_mayor_promedio['Promedio_goles']):.2f} goles/partido"
+    )
+with m4:
+    mostrar_tarjeta_igual(
+        "🧤 Menor promedio de goles",
+        f"Mes {entero_seguro(mes_menor_promedio['Mes'])}",
+        f"{decimal_seguro(mes_menor_promedio['Promedio_goles']):.2f} goles/partido"
+    )
