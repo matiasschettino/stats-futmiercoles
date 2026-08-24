@@ -797,19 +797,28 @@ with tab_perfil:
         tabla_companeros = top_companeros(jugador, parejas, individuales)
         tabla_rivales = top_rivales(jugador, rivales, individuales)
 
-        col_companeros, col_rivales = st.columns(2)
-        with col_companeros:
-            st.subheader("Top 10 compañeros")
-            if tabla_companeros.empty:
-                st.info("No hay compañeros para mostrar.")
-            else:
-                st.dataframe(tabla_companeros, use_container_width=True, hide_index=True, height=420)
-        with col_rivales:
-            st.subheader("Top 10 rivales")
-            if tabla_rivales.empty:
-                st.info("No hay rivales para mostrar.")
-            else:
-                st.dataframe(tabla_rivales, use_container_width=True, hide_index=True, height=420)
+        st.subheader("Top 10 compañeros")
+        if tabla_companeros.empty:
+            st.info("No hay compañeros para mostrar.")
+        else:
+            st.dataframe(
+                tabla_companeros,
+                use_container_width=True,
+                hide_index=True,
+                height=420
+            )
+
+        st.divider()
+        st.subheader("Top 10 rivales")
+        if tabla_rivales.empty:
+            st.info("No hay rivales para mostrar.")
+        else:
+            st.dataframe(
+                tabla_rivales,
+                use_container_width=True,
+                hide_index=True,
+                height=420
+            )
 
 
 # ==================================================
